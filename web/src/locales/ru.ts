@@ -645,6 +645,12 @@ export const catalog: Catalog = {
     "+{n} more": "+{n}",
 
     "Contacts": "Контакты",
+
+    "Collected": "Собранные",
+
+    "Save people you write to as contacts": "Сохранять адресатов как контакты",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.": "Все, кому вы пишете и кого ещё нет в контактах, добавляются в адресную книгу «Собранные» и предлагаются на всех устройствах. Ваши собственные адреса не добавляются.",
     "Contacts are not available": "Контакты недоступны",
     "New contact": "Новый контакт",
     "Edit contact": "Изменить контакт",
@@ -1332,6 +1338,9 @@ export const catalog: Catalog = {
     "Send anyway": "Всё равно отправить",
     "Send canceled — the message is back in Drafts": "Отправка отменена — письмо вернулось в черновики",
     "Send failed: {error}": "Не удалось отправить: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.": "Не удалось проверить, было ли это письмо уже отправлено. Проверьте «Отправленные», прежде чем отправлять его снова.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.": "Не удалось подтвердить, было ли это письмо отправлено. Проверьте «Отправленные», прежде чем отправлять его снова.",
+    "This message had already been sent, so it wasn't sent again.": "Это письмо уже было отправлено, поэтому повторно оно не отправлялось.",
     "Send invites": "Отправить приглашения",
     "Send scheduled for {when}": "Отправка запланирована на {when}",
     "Send without a subject?": "Отправить без темы?",

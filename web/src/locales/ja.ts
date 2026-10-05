@@ -642,6 +642,12 @@ export const catalog: Catalog = {
     "+{n} more": "他 {n} 件",
 
     "Contacts": "連絡先",
+
+    "Collected": "収集したアドレス",
+
+    "Save people you write to as contacts": "メールを送った相手を連絡先に保存する",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.": "まだ連絡先にない送信先は「収集したアドレス」アドレス帳に追加され、どのデバイスでも候補に表示されます。自分のアドレスは追加されません。",
     "Contacts are not available": "連絡先は利用できません",
     "New contact": "新しい連絡先",
     "Edit contact": "連絡先を編集",
@@ -1338,6 +1344,9 @@ export const catalog: Catalog = {
     "Send anyway": "このまま送信",
     "Send canceled — the message is back in Drafts": "送信を取り消しました。メールは下書きに戻っています",
     "Send failed: {error}": "送信できませんでした: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.": "このメッセージが送信済みかどうかを確認できませんでした。もう一度送信する前に送信済みフォルダーを確認してください。",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.": "このメッセージが送信されたかどうかを確認できませんでした。もう一度送信する前に送信済みフォルダーを確認してください。",
+    "This message had already been sent, so it wasn't sent again.": "このメッセージはすでに送信されていたため、再送信しませんでした。",
     "Send invites": "招待を送信",
     "Send scheduled for {when}": "{when} に送信を予約しました",
     "Send without a subject?": "件名なしで送信しますか？",

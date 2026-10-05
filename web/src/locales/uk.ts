@@ -639,6 +639,12 @@ export const catalog: Catalog = {
     "+{n} more": "+{n}",
 
     "Contacts": "Контакти",
+
+    "Collected": "Зібрані",
+
+    "Save people you write to as contacts": "Зберігати адресатів як контакти",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.": "Усі, кому ви пишете і кого ще немає в контактах, додаються до адресної книги «Зібрані» й пропонуються на всіх пристроях. Ваші власні адреси не додаються.",
     "Contacts are not available": "Контакти недоступні",
     "New contact": "Новий контакт",
     "Edit contact": "Змінити контакт",
@@ -1326,6 +1332,9 @@ export const catalog: Catalog = {
     "Send anyway": "Усе одно надіслати",
     "Send canceled — the message is back in Drafts": "Надсилання скасовано — лист повернувся до чернеток",
     "Send failed: {error}": "Не вдалося надіслати: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.": "Не вдалося перевірити, чи цей лист уже надіслано. Перевірте «Надіслані», перш ніж надсилати його знову.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.": "Не вдалося підтвердити, чи цей лист надіслано. Перевірте «Надіслані», перш ніж надсилати його знову.",
+    "This message had already been sent, so it wasn't sent again.": "Цей лист уже було надіслано, тому повторно його не надсилали.",
     "Send invites": "Надіслати запрошення",
     "Send scheduled for {when}": "Надсилання заплановано на {when}",
     "Send without a subject?": "Надіслати без теми?",

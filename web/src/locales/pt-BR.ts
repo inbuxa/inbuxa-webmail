@@ -646,6 +646,12 @@ export const catalog: Catalog = {
     "+{n} more": "+{n} outros",
 
     "Contacts": "Contatos",
+
+    "Collected": "Coletados",
+
+    "Save people you write to as contacts": "Salvar como contatos as pessoas para quem você escreve",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.": "Todos para quem você envia e que ainda não são contatos são adicionados à agenda Coletados, para serem sugeridos em todos os dispositivos. Seus próprios endereços nunca são adicionados.",
     "Contacts are not available": "Os contatos não estão disponíveis",
     "New contact": "Novo contato",
     "Edit contact": "Editar o contato",
@@ -1333,6 +1339,9 @@ export const catalog: Catalog = {
     "Send anyway": "Enviar mesmo assim",
     "Send canceled — the message is back in Drafts": "Envio cancelado — a mensagem voltou para Rascunhos",
     "Send failed: {error}": "Falha ao enviar: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.": "Não foi possível verificar se esta mensagem já foi enviada. Confira Enviados antes de enviá-la novamente.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.": "Não foi possível confirmar se esta mensagem foi enviada. Confira Enviados antes de enviá-la novamente.",
+    "This message had already been sent, so it wasn't sent again.": "Esta mensagem já tinha sido enviada, então não foi enviada de novo.",
     "Send invites": "Enviar convites",
     "Send scheduled for {when}": "Envio agendado para {when}",
     "Send without a subject?": "Enviar sem assunto?",

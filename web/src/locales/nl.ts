@@ -643,6 +643,12 @@ export const catalog: Catalog = {
     "+{n} more": "+{n} meer",
 
     "Contacts": "Contacten",
+
+    "Collected": "Verzameld",
+
+    "Save people you write to as contacts": "Mensen aan wie je schrijft als contact opslaan",
+
+    "Everyone you send to who isn’t a contact yet is added to the Collected address book, so they’re suggested on every device. Your own addresses are never added.": "Iedereen aan wie je mailt en die nog geen contact is, wordt toegevoegd aan het adresboek Verzameld, zodat die op elk apparaat wordt voorgesteld. Je eigen adressen worden nooit toegevoegd.",
     "Contacts are not available": "Contacten zijn niet beschikbaar",
     "New contact": "Nieuw contact",
     "Edit contact": "Contact bewerken",
@@ -1330,6 +1336,9 @@ export const catalog: Catalog = {
     "Send anyway": "Toch verzenden",
     "Send canceled — the message is back in Drafts": "Verzenden geannuleerd — het bericht staat weer bij Concepten",
     "Send failed: {error}": "Verzenden mislukt: {error}",
+    "Couldn't check whether this message was already sent. Check Sent before sending it again.": "Kon niet controleren of dit bericht al is verzonden. Kijk in Verzonden voordat je het opnieuw verstuurt.",
+    "Couldn't confirm whether this message was sent. Check Sent before sending it again.": "Kon niet bevestigen of dit bericht is verzonden. Kijk in Verzonden voordat je het opnieuw verstuurt.",
+    "This message had already been sent, so it wasn't sent again.": "Dit bericht was al verzonden en is daarom niet opnieuw verstuurd.",
     "Send invites": "Uitnodigingen verzenden",
     "Send scheduled for {when}": "Verzenden gepland voor {when}",
     "Send without a subject?": "Verzenden zonder een onderwerp?",
