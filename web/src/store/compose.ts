@@ -765,6 +765,13 @@ export const useCompose = create<ComposeState>((set, get) => ({
       });
       try {
         const sent = await sendInternal(d, get, { retry });
+        // Everyone written to who is not a contact yet, so they are suggested on every
+        // device. Also when a resend found the first attempt had gone out: its reply
+        // was what got lost, so nothing was collected then.
+        if (settings().collectRecipients) {
+          const own = useMail.getState().identities.map((i) => i.email);
+          void useContacts.getState().collectRecipients([...d.to, ...d.cc, ...d.bcc], own).catch(() => undefined);
+        }
         if (sent.alreadySent) {
           toast.success(translate("This message had already been sent, so it wasn't sent again."));
           return;
