@@ -1257,6 +1257,8 @@ a.menu-item:hover { color: var(--fg); }
 .app.delegated { grid-template-rows: auto var(--topbar-h) 1fr; }
 .delegated-bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #b91c1c; color: #fff; font-size: .9em; min-width: 0; }
 .delegated-bar strong { font-weight: 700; }
+/* MA-A: a shared or group mailbox is the reader's to be in, so the palette's own color, not the locked account's red. */
+.delegated-bar.shared { background: var(--accent); color: var(--accent-fg); }
 .delegated-bar button { flex: none; border: 1px solid rgba(255, 255, 255, .7); background: transparent; color: #fff; border-radius: 999px; padding: 3px 12px; font: inherit; font-weight: 600; cursor: pointer; }
 .delegated-bar button:hover, .delegated-bar button:focus-visible { background: rgba(255, 255, 255, .15); }
 .topbar .brand.locked .brand-name, .topbar .brand.locked .brand-lock { color: #dc2626; }

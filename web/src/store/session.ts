@@ -10,6 +10,7 @@ import { unsubscribeThisDevice } from "@/lib/notify/webpush";
 import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage";
 import { startIdleLogout, stopIdleLogout } from "@/lib/idleLogout";
 import { delegationOf, type Delegation } from "@/lib/delegation";
+import { findSharedMail, sharedMailCandidates, type SharedMailAccount } from "@/lib/sharedMail";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
@@ -19,12 +20,15 @@ interface SessionState {
   /** Selected mail account (defaults to primary). */
   accountId: Id | null;
   /**
-   * A locked account handed to the reader that the app shows instead of
-   * their own (inbuxa AL-7): its mail, calendar, contacts and files. The
-   * reader's settings, filters, signatures and push stay their own.
+   * Another account whose mail the app shows instead of the reader's own:
+   * a locked account handed to them (inbuxa AL-7), whose calendar, contacts
+   * and files follow, or a shared or group mailbox (MA-A), which is mail
+   * only. The reader's settings, filters, signatures and push stay their own.
    */
   viewing: Id | null;
-  /** The name of an account whose delegation ended while it was in view. */
+  /** Shared and group mailboxes the reader can open (MA-A); see lib/sharedMail. */
+  sharedMail: SharedMailAccount[];
+  /** The name of an account the reader lost while it was in view. */
   delegationEnded: string | null;
   error: string | null;
   pushConnected: boolean;
@@ -35,8 +39,10 @@ interface SessionState {
   logout(): Promise<void>;
   refresh(): Promise<void>;
   setAccount(id: Id): void;
-  /** Show a delegated account's mail, or the reader's own with null. */
+  /** Show a delegated account's or shared mailbox's mail, or the reader's own with null. */
   view(id: Id | null): void;
+  /** Finds the shared and group mailboxes the reader can open. */
+  loadSharedMail(): Promise<void>;
   clearDelegationEnded(): void;
   /** The account to read and write for a capability, honoring the account switcher. */
   accountFor(cap: string): Id | null;
@@ -58,6 +64,7 @@ export const useSession = create<SessionState>((set, get) => ({
   session: null,
   accountId: null,
   viewing: null,
+  sharedMail: [],
   delegationEnded: null,
   error: null,
   pushConnected: false,
@@ -120,7 +127,7 @@ export const useSession = create<SessionState>((set, get) => ({
     // problem next -- and the address book cached here is the same argument.
     clearSignedInData();
     client.session = null;
-    set({ status: "anonymous", session: null, accountId: null, viewing: null });
+    set({ status: "anonymous", session: null, accountId: null, viewing: null, sharedMail: [] });
   },
 
   refresh() {
@@ -130,14 +137,16 @@ export const useSession = create<SessionState>((set, get) => ({
         const s = await apiFetch<JmapSession>("/api/auth/session?refresh=1");
         client.session = s;
         setServerLocale(s.ihasmail?.userLocale);
-        // A delegation that ended takes the reader back to their own mail
+        // A delegation that ended, or a shared mailbox taken away, takes the
+        // reader back to their own mail
         const viewing = get().viewing;
-        if (viewing && !delegationOf(s, viewing)) {
+        if (viewing && !delegationOf(s, viewing) && !sharedMailCandidates(s).some((a) => a.id === viewing)) {
           const name = get().session?.accounts[viewing]?.name ?? null;
           set({ session: s, viewing: null, delegationEnded: name });
         } else {
           set({ session: s });
         }
+        void get().loadSharedMail();
       } catch {
         /* ignore */
       } finally {
@@ -152,9 +161,16 @@ export const useSession = create<SessionState>((set, get) => ({
   },
 
   view(id) {
-    if (id && !delegationOf(get().session, id)) return;
+    if (id && !delegationOf(get().session, id) && !get().sharedMail.some((a) => a.id === id)) return;
     if (id === get().viewing) return;
     set({ viewing: id });
+  },
+
+  async loadSharedMail() {
+    const session = get().session;
+    const found = await findSharedMail(session);
+    // A sign-out or another account's session arrived while it was asking
+    if (get().session === session) set({ sharedMail: found });
   },
 
   clearDelegationEnded() {
@@ -172,7 +188,8 @@ export const useSession = create<SessionState>((set, get) => ({
   viewAccountFor(cap) {
     const { session, viewing } = get();
     const viewed = viewing ? session?.accounts[viewing] : undefined;
-    if (viewing && viewed && cap in (viewed.accountCapabilities ?? {})) return viewing;
+    // A shared or group mailbox in view is mail only (MA-A)
+    if (viewing && viewed && delegationOf(session, viewing) && cap in (viewed.accountCapabilities ?? {})) return viewing;
     return ownAccountForCapability(session, cap);
   },
 }));
@@ -194,7 +211,8 @@ function applySession(s: JmapSession, set: (p: Partial<SessionState>) => void) {
     startIdleLogout(() => void useSession.getState().logout());
   }
   const accountId = s.primaryAccounts[CAP.mail] ?? Object.keys(s.accounts)[0] ?? null;
-  set({ status: "authenticated", session: s, accountId, viewing: null, error: null });
+  set({ status: "authenticated", session: s, accountId, viewing: null, sharedMail: [], error: null });
+  void useSession.getState().loadSharedMail();
 }
 
 client.onUnauthenticated(() => {
@@ -207,7 +225,7 @@ client.onUnauthenticated(() => {
   // usual reason to be signed out here, and reloading a form someone has
   // already started typing into would throw the password away.
   void reloadIfServerRebuilt().then((reloading) => {
-    if (!reloading) useSession.setState({ status: "anonymous", session: null, accountId: null, viewing: null });
+    if (!reloading) useSession.setState({ status: "anonymous", session: null, accountId: null, viewing: null, sharedMail: [] });
   });
 });
 
@@ -218,6 +236,13 @@ export function useViewingDelegation(): Delegation | null {
   const session = useSession((s) => s.session);
   const viewing = useSession((s) => s.viewing);
   return delegationOf(session, viewing);
+}
+
+/** The shared or group mailbox in view, if one is (MA-A). */
+export function useViewingShared(): SharedMailAccount | null {
+  const viewing = useSession((s) => s.viewing);
+  const sharedMail = useSession((s) => s.sharedMail);
+  return (viewing && sharedMail.find((a) => a.id === viewing)) || null;
 }
 
 export function viewingDelegation(): Delegation | null {
