@@ -150,6 +150,9 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   const viewing = useSession((s) => s.viewing);
   const delegated = delegatedAccounts(session);
+  // MA-A: shared and group mailboxes are offered in the same list, after locked accounts
+  const sharedMail = useSession((s) => s.sharedMail);
+  const lockedInView = viewing !== null && delegated.some((a) => a.id === viewing);
   const switchTo = (id: string | null) => {
     acctMenu.close();
     if (id === viewing) return;
@@ -173,9 +176,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <MenuIcon size={22} />
           </button>
         )}
-        <Link href="/mail" className={`brand ${viewing ? "locked" : ""}`}>
+        <Link href="/mail" className={`brand ${lockedInView ? "locked" : ""}`}>
           <img src={brandImage(appName === DEFAULT_APP_NAME ? "/img/inbuxa-mark.png" : "/img/logo.png")} alt="" />
-          {viewing && <Lock size={18} className="brand-lock" aria-label={t("Locked account")} />}
+          {lockedInView && <Lock size={18} className="brand-lock" aria-label={t("Locked account")} />}
           {/* A product name, not a word: translated it is a different product.
               Read from the session rather than written here, so a deployment
               that set APP_NAME is called what it calls itself -- the document
@@ -217,7 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <MenuSep />
-            {delegated.length > 0 && (
+            {delegated.length + sharedMail.length > 0 && (
               <>
                 <div className="hint" style={{ padding: "4px 10px" }}>{t("Mail to show")}</div>
                 <MenuItem
@@ -230,6 +233,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <MenuItem
                     key={account.id}
                     icon={viewing === account.id ? <Check size={16} /> : <Lock size={16} />}
+                    label={<span className="notranslate" translate="no">{account.name}</span>}
+                    active={viewing === account.id}
+                    onClick={() => switchTo(account.id)}
+                  />
+                ))}
+                {sharedMail.map((account) => (
+                  <MenuItem
+                    key={account.id}
+                    icon={viewing === account.id ? <Check size={16} /> : <Users size={16} />}
                     label={<span className="notranslate" translate="no">{account.name}</span>}
                     active={viewing === account.id}
                     onClick={() => switchTo(account.id)}

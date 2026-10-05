@@ -1,6 +1,6 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Route, Switch, Redirect, useLocation, Router } from "wouter";
-import { useSession } from "@/store/session";
+import { useSession, useViewingDelegation } from "@/store/session";
 import { notifyOwnWhileAway, ownAccountAway, useMail } from "@/store/mail";
 import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useContacts } from "@/store/contacts";
@@ -311,12 +311,14 @@ function AuthedApp() {
     return id ? (s.mailboxes[id]?.unreadEmails ?? 0) : 0;
   });
   const appName = useSession((s) => s.session?.ihasmail?.appName) || DEFAULT_APP_NAME;
-  // inbuxa AL-7: a locked account in view is named, with a padlock, in the tab
+  // inbuxa AL-7: a locked account in view is named, with a padlock, in the
+  // tab; a shared or group mailbox (MA-A) is named without one
   const viewingName = useSession((s) => (s.viewing ? s.session?.accounts[s.viewing]?.name : undefined));
+  const lockedInView = useViewingDelegation() !== null;
   useEffect(() => {
-    setBaseTitle(viewingName ? `🔒 ${viewingName} · ${appName}` : appName);
+    setBaseTitle(viewingName ? `${lockedInView ? "🔒 " : ""}${viewingName} · ${appName}` : appName);
     setUnreadBadge(inboxUnread);
-  }, [inboxUnread, appName, viewingName]);
+  }, [inboxUnread, appName, viewingName, lockedInView]);
 
   /*
    * Leave the service worker its briefing.
