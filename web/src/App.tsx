@@ -314,7 +314,7 @@ function AuthedApp() {
   // inbuxa AL-7: a locked account in view is named, with a padlock, in the
   // tab; a shared or group mailbox (MA-A) is named without one
   const viewingName = useSession((s) => (s.viewing ? s.session?.accounts[s.viewing]?.name : undefined));
-  const lockedInView = useViewingDelegation() !== null;
+  const lockedInView = useViewingDelegation()?.kind === "lock";
   useEffect(() => {
     setBaseTitle(viewingName ? `${lockedInView ? "🔒 " : ""}${viewingName} · ${appName}` : appName);
     setUnreadBadge(inboxUnread);

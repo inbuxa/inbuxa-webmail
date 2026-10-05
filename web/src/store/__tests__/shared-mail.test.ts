@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
-import { useSession } from "@/store/session";
+import { useSession, viewingDelegation } from "@/store/session";
 import { findSharedMail, sharedMailCandidates } from "@/lib/sharedMail";
+import { delegatedAccounts } from "@/lib/delegation";
 
 /**
  * MA-A: a group's mailbox, or folders someone shared, can be opened in place
@@ -35,6 +36,16 @@ const sessionWith = (extra: Record<string, unknown> = {}) =>
         name: "gone@example.com",
         isPersonal: false,
         accountCapabilities: { [CAP.mail]: {}, "urn:inbuxa:jmap": { delegation: { locked: true, access: "read", sendAs: false, until: null } } },
+      },
+      // A shared mailbox an administrator assigned (MA-S): marked, so never asked about
+      desk: {
+        name: "desk@example.com",
+        isPersonal: false,
+        accountCapabilities: {
+          [CAP.mail]: {},
+          [CAP.calendars]: {},
+          "urn:inbuxa:jmap": { delegation: { locked: true, kind: "sharedMailbox", access: "organize", sendAs: true, until: null } },
+        },
       },
       ...extra,
     },
@@ -76,11 +87,12 @@ afterEach(() => {
 
 describe("shared mail", () => {
   it("considers only other people's accounts that advertise mail, leaving locked accounts to delegation", () => {
-    expect(sharedMailCandidates(sessionWith()).map((a) => a.id)).toEqual(["calendarOnly", "group"]);
+    expect(sharedMailCandidates(sessionWith()).map((a) => a.id)).toEqual(["calendarOnly", "desk", "group"]);
   });
 
   it("offers only accounts that answer with a mailbox", async () => {
-    expect((await findSharedMail(sessionWith())).map((a) => a.name)).toEqual(["support@example.com"]);
+    // The shared mailbox answers no Mailbox/get here, and is offered anyway
+    expect((await findSharedMail(sessionWith())).map((a) => a.name)).toEqual(["desk@example.com", "support@example.com"]);
   });
 
   it("can't be opened until it is found, and then shows mail only", async () => {
@@ -110,5 +122,15 @@ describe("shared mail", () => {
     await useSession.getState().refresh();
     expect(useSession.getState().viewing).toBeNull();
     expect(useSession.getState().delegationEnded).toBe("support@example.com");
+  });
+
+  it("shows an assigned shared mailbox as shared, not locked, keeping its access level", async () => {
+    await useSession.getState().loadSharedMail();
+    expect(delegatedAccounts(useSession.getState().session).map((a) => a.id)).toEqual(["locked"]);
+    useSession.getState().view("desk");
+    expect(useSession.getState().viewing).toBe("desk");
+    expect(viewingDelegation()?.access).toBe("organize");
+    // Mail only, like any shared mailbox
+    expect(useSession.getState().viewAccountFor(CAP.calendars)).toBe("own");
   });
 });

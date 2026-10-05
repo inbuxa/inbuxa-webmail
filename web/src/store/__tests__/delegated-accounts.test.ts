@@ -70,7 +70,7 @@ afterEach(() => {
 describe("delegation", () => {
   it("is read only from the session's mark, never from a shared account's capabilities", () => {
     const session = sessionWith(delegated("organize", true));
-    expect(delegationOf(session, "locked")).toEqual({ locked: true, access: "organize", sendAs: true, until: null });
+    expect(delegationOf(session, "locked")).toEqual({ locked: true, kind: "lock", access: "organize", sendAs: true, until: null });
     expect(delegationOf(session, "shared")).toBeNull();
     expect(delegationOf(session, "own")).toBeNull();
     expect(delegatedAccounts(session).map((a) => a.id)).toEqual(["locked"]);

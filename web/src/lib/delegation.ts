@@ -13,6 +13,12 @@ export type DelegationAccess = "read" | "organize" | "full";
 
 export interface Delegation {
   locked: boolean;
+  /**
+   * A locked account, or a shared mailbox such as support@ (MA-S). Both are
+   * reached as a delegate at an access level; only how they are shown
+   * differs. Absent from older servers, where it is always a lock.
+   */
+  kind: "lock" | "sharedMailbox";
   access: DelegationAccess;
   sendAs: boolean;
   /** UTC date the delegation ends, if it does. */
@@ -38,19 +44,20 @@ export function delegationOf(session: SessionLike | null, accountId: Id | null):
   const access: DelegationAccess = raw.access === "organize" || raw.access === "full" ? raw.access : "read";
   return {
     locked: true,
+    kind: raw.kind === "sharedMailbox" ? "sharedMailbox" : "lock",
     access,
     sendAs: raw.sendAs === true && access !== "read",
     until: typeof raw.until === "string" ? raw.until : null,
   };
 }
 
-/** Every locked account handed to the reader, by name. */
+/** Every locked account handed to the reader, by name. Shared mailboxes are listed by lib/sharedMail. */
 export function delegatedAccounts(session: SessionLike | null): DelegatedAccount[] {
   if (!session) return [];
   return Object.entries(session.accounts)
     .map(([id, account]) => {
       const delegation = delegationOf(session, id);
-      return delegation ? { id, name: account.name, delegation } : null;
+      return delegation?.kind === "lock" ? { id, name: account.name, delegation } : null;
     })
     .filter((a): a is DelegatedAccount => a !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
