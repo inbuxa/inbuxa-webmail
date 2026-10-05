@@ -188,8 +188,8 @@ export const useSession = create<SessionState>((set, get) => ({
   viewAccountFor(cap) {
     const { session, viewing } = get();
     const viewed = viewing ? session?.accounts[viewing] : undefined;
-    // A shared or group mailbox in view is mail only (MA-A)
-    if (viewing && viewed && delegationOf(session, viewing) && cap in (viewed.accountCapabilities ?? {})) return viewing;
+    // A shared or group mailbox in view is mail only (MA-A, MA-S)
+    if (viewing && viewed && delegationOf(session, viewing)?.kind === "lock" && cap in (viewed.accountCapabilities ?? {})) return viewing;
     return ownAccountForCapability(session, cap);
   },
 }));

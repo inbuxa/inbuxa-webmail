@@ -1,6 +1,7 @@
 /**
  * Mail other people let the reader into (multi-account spec, MA-A): a group's
- * mailbox, or folders someone shared.
+ * mailbox, folders someone shared, or a shared mailbox an administrator
+ * assigned them to (MA-S).
  *
  * Either one arrives as another account in the session, `isPersonal: false`.
  * That alone proves nothing about mail -- the server advertises every
@@ -9,8 +10,10 @@
  * `Mailbox/get` answers with at least one mailbox has mail the reader can
  * open, and only those are offered.
  *
- * A locked account handed to the reader (AL-7) is listed by `delegation.ts`
- * instead, and left out here so it is never offered twice.
+ * A shared mailbox needs no asking: the server marks it, as a delegation of
+ * kind `sharedMailbox`, and it is mail by definition. A locked account handed
+ * to the reader (AL-7) is listed by `delegation.ts` instead, and left out
+ * here so it is never offered twice.
  */
 
 import { CAP, client } from "@/jmap/client";
@@ -28,7 +31,7 @@ type SessionLike = Pick<JmapSession, "accounts">;
 export function sharedMailCandidates(session: SessionLike | null): SharedMailAccount[] {
   if (!session) return [];
   return Object.entries(session.accounts)
-    .filter(([id, account]) => account.isPersonal === false && CAP.mail in (account.accountCapabilities ?? {}) && !delegationOf(session, id))
+    .filter(([id, account]) => account.isPersonal === false && CAP.mail in (account.accountCapabilities ?? {}) && delegationOf(session, id)?.kind !== "lock")
     .map(([id, account]) => ({ id, name: account.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -38,7 +41,9 @@ export async function findSharedMail(session: SessionLike | null): Promise<Share
   const candidates = sharedMailCandidates(session);
   const answers = await Promise.all(
     candidates.map((account) =>
-      client.call<GetResponse<Mailbox>>("Mailbox/get", { accountId: account.id, ids: null, properties: ["id"] }).then(
+      delegationOf(session, account.id)?.kind === "sharedMailbox"
+        ? Promise.resolve(account)
+        : client.call<GetResponse<Mailbox>>("Mailbox/get", { accountId: account.id, ids: null, properties: ["id"] }).then(
         (res) => (res.list.length > 0 ? account : null),
         () => null,
       ),

@@ -38,6 +38,9 @@ export function DelegatedBar() {
         <Users size={15} aria-hidden />
         <span className="grow truncate">
           {t("Shared mailbox:")} <strong className="notranslate" translate="no">{shared.name}</strong>
+          {/* MA-S: one an administrator assigned says at what level */}
+          {delegation ? ` · ${accessText(delegation.access)}` : ""}
+          {delegation?.sendAs ? ` · ${t("You can send as this account")}` : ""}
         </span>
         <button type="button" onClick={back}>
           {t("Back to my mail")}
