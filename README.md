@@ -9,8 +9,10 @@
 </p>
 
 > [!NOTE]
-> Development happens on [git.coffeylabs.org/inbuxa/ihasmail-inbuxa](https://git.coffeylabs.org/inbuxa/ihasmail-inbuxa); the copy on GitHub is a read-only mirror.
-> Report issues at **[git.coffeylabs.org/inbuxa/ihasmail-inbuxa/issues](https://git.coffeylabs.org/inbuxa/ihasmail-inbuxa/issues)**, and join discussions at **[community.coffeylabs.org](https://community.coffeylabs.org)**.
+> Development happens on [git.coffeylabs.org/inbuxa/inbuxa-webmail](https://git.coffeylabs.org/inbuxa/inbuxa-webmail); the copy on GitHub is a read-only mirror.
+> Report issues at **[git.coffeylabs.org/inbuxa/inbuxa-webmail/issues](https://git.coffeylabs.org/inbuxa/inbuxa-webmail/issues)**, and join discussions at **[community.coffeylabs.org](https://community.coffeylabs.org)**.
+>
+> This repository was called `ihasmail-inbuxa` until October 2026. Container images are now published as `inbuxa/inbuxa-webmail`; the old `inbuxa/ihasmail-inbuxa` image stops at `2026.9.26-g654d298`.
 
 The webmail of the INBUXA suite: mail, calendars, contacts, files and filters
 in one app that works as well on a phone as on a desktop. It talks only JMAP to
@@ -74,7 +76,7 @@ docker compose up --build -d
 ## Source code
 
 INBUXA webmail is a modified ihasmail, so the AGPL's offer is this fork:
-<https://git.coffeylabs.org/inbuxa/ihasmail-inbuxa>. The sign-in page and Settings ›
+<https://git.coffeylabs.org/inbuxa/inbuxa-webmail>. The sign-in page and Settings ›
 About link there, beside the version, which names the commit the running build
 came from.
 

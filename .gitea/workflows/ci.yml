@@ -133,7 +133,7 @@ jobs:
           echo "DOCKER_TAG=${V/+/-}" >> "$GITHUB_OUTPUT"
           echo "VERSION=$V DOCKER_TAG=${V/+/-}"
 
-  # Multi-arch image at <REGISTRY>/inbuxa/ihasmail-inbuxa, then the release.
+  # Multi-arch image at <REGISTRY>/inbuxa/inbuxa-webmail, then the release.
   # arm64 is built under QEMU on this amd64 host, which is slow but fine for
   # a hand-cut release. PACKAGE_TOKEN (jcoffey-dev, write:package) logs in:
   # the job's own token is refused by the container registry. The release is
