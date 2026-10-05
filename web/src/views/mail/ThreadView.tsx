@@ -120,6 +120,22 @@ export function ThreadView({ threadId, mailboxId, onBack, actions, onNavigate, h
   for (const m of messages) if (!m.keywords.$seen) unreadAtOpen.current.ids.add(m.id);
   const wasUnread = unreadAtOpen.current.ids;
 
+  /*
+   * Which messages have been read while this conversation was open.
+   *
+   * Mark as unread on an open message used to undo itself: clearing `$seen`
+   * re-ran the timer below, which found an expanded unread message and marked
+   * it read again a moment later (Gitea issue #25). A message that has been
+   * read here and is unread again was made so on purpose -- by this reader or
+   * on another device -- so the timer leaves it alone until the conversation
+   * is opened again. Mail that arrives unread was never read here, and is
+   * still marked read as before. Accumulated during render, like the set
+   * above.
+   */
+  const readWhileOpen = useRef<{ key: Id | null; ids: Set<Id> }>({ key: null, ids: new Set() });
+  if (readWhileOpen.current.key !== threadKey) readWhileOpen.current = { key: threadKey, ids: new Set() };
+  for (const m of messages) if (m.keywords.$seen) readWhileOpen.current.ids.add(m.id);
+
   // Default expansion: unread when opened + last message expanded, others collapsed
   const lastId = messages[messages.length - 1]?.id;
   const isExpanded = useCallback(
@@ -136,8 +152,8 @@ export function ThreadView({ threadId, mailboxId, onBack, actions, onNavigate, h
   // changes nothing there, not even $seen
   const readOnly = useViewingDelegation()?.access === "read";
   useEffect(() => {
-    if (!messages.length || readOnly) return;
-    const unread = messages.filter((e) => !e.keywords.$seen && isExpanded(e)).map((e) => e.id);
+if (!messages.length || readOnly) return;
+const unread = messages.filter((e) => !e.keywords.$seen && isExpanded(e) && !readWhileOpen.current.ids.has(e.id)).map((e) => e.id);
     if (!unread.length || settings.markReadDelay < 0) return;
     if (markTimer.current) window.clearTimeout(markTimer.current);
     markTimer.current = window.setTimeout(() => void useMail.getState().markRead(unread, true), settings.markReadDelay * 1000);
