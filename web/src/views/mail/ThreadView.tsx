@@ -152,8 +152,8 @@ export function ThreadView({ threadId, mailboxId, onBack, actions, onNavigate, h
   // changes nothing there, not even $seen
   const readOnly = useViewingDelegation()?.access === "read";
   useEffect(() => {
-if (!messages.length || readOnly) return;
-const unread = messages.filter((e) => !e.keywords.$seen && isExpanded(e) && !readWhileOpen.current.ids.has(e.id)).map((e) => e.id);
+    if (!messages.length || readOnly) return;
+    const unread = messages.filter((e) => !e.keywords.$seen && isExpanded(e) && !readWhileOpen.current.ids.has(e.id)).map((e) => e.id);
     if (!unread.length || settings.markReadDelay < 0) return;
     if (markTimer.current) window.clearTimeout(markTimer.current);
     markTimer.current = window.setTimeout(() => void useMail.getState().markRead(unread, true), settings.markReadDelay * 1000);
