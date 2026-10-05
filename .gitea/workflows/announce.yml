@@ -1,11 +1,19 @@
 # Announce each published release on the community forum, in this project's
 # Announcements category (coffey-labs/actions discourse-release; the repo ->
 # category map is its release-map.json). Safe to re-run: one topic per tag.
+# Run it by hand with a tag to announce a release whose own run failed: a
+# release event runs the workflow as it was at the tag, so a fix on main only
+# reaches an old release this way.
 name: announce
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to announce, e.g. inbuxa-v2026.10.5-g17a8093
+        required: true
 
 jobs:
   announce:
@@ -15,3 +23,4 @@ jobs:
         with:
           api-key: ${{ secrets.DISCOURSE_RELEASE_KEY }}
           discord-webhook: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          tag: ${{ inputs.tag }}
