@@ -46,7 +46,7 @@ env:
   GITEA_URL: ${{ vars.GITEA_URL }}
   REGISTRY: ${{ vars.REGISTRY }}
   # A registry path must be lowercase; the repository name already is.
-  IMAGE: ${{ vars.REGISTRY }}/inbuxa/ihasmail-inbuxa
+  IMAGE: ${{ vars.REGISTRY }}/inbuxa/inbuxa-webmail
   # A tag's context names the tag: upstream v* and inbuxa-v* tags can sit on
   # the same commit, and Gitea must not read one tag's result as the other's.
   STATUS_CONTEXT: github/ci (${{ github.ref_type == 'tag' && format('tag {0}', github.ref_name) || 'branch' }})
@@ -222,7 +222,7 @@ jobs:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
         run: |
           curl -fsS -o /dev/null -X POST -H "Authorization: token $GITEA_TOKEN" \
-            "$GITEA_URL/api/v1/packages/inbuxa/container/ihasmail-inbuxa/-/link/ihasmail-inbuxa" \
+            "$GITEA_URL/api/v1/packages/inbuxa/container/inbuxa-webmail/-/link/inbuxa-webmail" \
             || echo "package already linked (or link refused); not fatal"
       - env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}

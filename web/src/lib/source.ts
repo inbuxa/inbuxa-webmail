@@ -8,4 +8,4 @@
  * ihasmail-inbuxa: INBUXA runs a modified ihasmail, so the offer is INBUXA's
  * fork and not the project it came from.
  */
-export const DEFAULT_SOURCE_URL = "https://git.coffeylabs.org/inbuxa/ihasmail-inbuxa";
+export const DEFAULT_SOURCE_URL = "https://git.coffeylabs.org/inbuxa/inbuxa-webmail";
