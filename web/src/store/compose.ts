@@ -755,6 +755,11 @@ export const useCompose = create<ComposeState>((set, get) => ({
       });
       try {
         const sent = await sendInternal(d, get);
+        // Everyone written to who is not a contact yet, so they are suggested on every device.
+        if (settings().collectRecipients) {
+          const own = useMail.getState().identities.map((i) => i.email);
+          void useContacts.getState().collectRecipients([...d.to, ...d.cc, ...d.bcc], own).catch(() => undefined);
+        }
         toast.success(
           sent.held
             ? translate("Held for review: it's sent once a reviewer releases it")
