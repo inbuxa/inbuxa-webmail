@@ -35,7 +35,7 @@ settings included, lives on the server, so the container is disposable.
   Everything else is in INBUXA Admin.
 - **Sign-in on the mail server's own page**, two-factor included. The webmail
   never handles a password to sign someone in, and holds only sealed tokens.
-- **Ten interface languages and twelve themes.**
+- **Eleven interface languages and twelve themes.**
 
 ## Configuration
 

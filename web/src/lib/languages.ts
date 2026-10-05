@@ -48,6 +48,7 @@ export const UI_LANGUAGES: readonly UiLanguage[] = [
   { tag: "ru", name: "Русский" },
   { tag: "uk", name: "Українська" },
   { tag: "zh-Hans", name: "简体中文" },
+  { tag: "tr", name: "Türkçe" },
 ];
 
 /** Where to report a bad translation. Beta languages depend on it. */
