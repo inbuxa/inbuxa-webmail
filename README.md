@@ -107,4 +107,4 @@ keep up. Nothing here is pushed there.
 
 ## License
 
-Copyright (C) 2026 Coffey Labs. AGPL-3.0-or-later; see [LICENSE](LICENSE).
+Copyright (C) 2026 Coffey Labs LLC. AGPL-3.0-or-later; see [LICENSE](LICENSE).
