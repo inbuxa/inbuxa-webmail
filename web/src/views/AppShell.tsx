@@ -11,6 +11,7 @@ import { composeBlocked, draftFromMailto, useCompose } from "@/store/compose";
 import { delegatedAccounts } from "@/lib/delegation";
 import { toast } from "@/ui/toast";
 import { DelegatedBar } from "./DelegatedBar";
+import { AddAccountDialog } from "./AddAccountDialog";
 import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
@@ -73,6 +74,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pushState = useSession((s) => s.pushState);
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
+  // inbuxa MA-B: the other accounts signed in here, and adding one
+  const signedIn = useSession((s) => s.signedIn);
+  const canAddAccount = useSession((s) => s.canAddAccount);
+  const [addingAccount, setAddingAccount] = useState(false);
+  const bringForward = (sessionId: string) => {
+    acctMenu.close();
+    // A message being written belongs to the account it was started in
+    if (useCompose.getState().drafts.length) {
+      toast.show(t("Send or close the message you're writing first."));
+      return;
+    }
+    void useSession.getState().switchTo(sessionId);
+  };
+  // A refused add comes back on the address (see the server's /auth/callback)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const why = params.get("account_error");
+    if (!why) return;
+    toast.show(
+      why === "add_full"
+        ? t("You can't add more accounts here.")
+        : why === "add_other_server"
+          ? t("That account is on another mail server. Only accounts on this server can be added.")
+          : t("Your organization doesn't allow adding other accounts here."),
+    );
+    params.delete("account_error");
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+  }, []);
   const appName = useSession((s) => s.session?.ihasmail?.appName) || DEFAULT_APP_NAME;
   const acctMenu = useMenu();
   const administers = hasAdministration(usePermissions());
@@ -220,6 +250,33 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <MenuSep />
+            {/* inbuxa MA-B: each account signed in here, the one in front ticked */}
+            {(signedIn.length > 1 || canAddAccount) && (
+              <>
+                {signedIn.length > 1 && <div className="hint" style={{ padding: "4px 10px" }}>{t("Accounts")}</div>}
+                {signedIn.length > 1 &&
+                  signedIn.map((account) => (
+                    <MenuItem
+                      key={account.id}
+                      icon={account.front ? <Check size={16} /> : <Mail size={16} />}
+                      label={<span className="notranslate" translate="no">{account.username}</span>}
+                      active={account.front}
+                      onClick={() => (account.front ? acctMenu.close() : bringForward(account.id))}
+                    />
+                  ))}
+                {canAddAccount && (
+                  <MenuItem
+                    icon={<Plus size={16} />}
+                    label={t("Add account")}
+                    onClick={() => {
+                      acctMenu.close();
+                      setAddingAccount(true);
+                    }}
+                  />
+                )}
+                <MenuSep />
+              </>
+            )}
             {delegated.length + sharedMail.length > 0 && (
               <>
                 <div className="hint" style={{ padding: "4px 10px" }}>{t("Mail to show")}</div>
@@ -277,7 +334,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
             <MenuItem icon={<RefreshCw size={16} />} label={t("Refresh")} onClick={() => window.location.reload()} />
             <MenuItem icon={<LogOut size={16} />} label={t("Sign out")} onClick={() => void logout()} />
+            {signedIn.length > 1 && (
+              <MenuItem icon={<LogOut size={16} />} label={t("Sign out of all accounts")} onClick={() => void useSession.getState().logoutAll()} />
+            )}
           </Popover>
+          <AddAccountDialog open={addingAccount} onClose={() => setAddingAccount(false)} />
         </div>
       </header>
 

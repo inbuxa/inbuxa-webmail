@@ -45,6 +45,7 @@ import { SignInError, finish as finishSignIn, needsRefresh, oauthEnabled, passwo
 import { icsProxyHandler } from "./icsproxy.js";
 import { staticHandler } from "./static.js";
 import { mailNode, webmailNode } from "./nodes.js";
+import { ADD_REFUSED, MAX_ACCOUNTS, mayAddAccounts, parseOthers, serializeOthers } from "./accounts.js";
 
 type Env = { Variables: { session: LiveSession } };
 
@@ -330,6 +331,93 @@ function setSessionCookie(c: Context, value: string, remember: boolean) {
   });
 }
 
+/*
+ * inbuxa MA-B: the other signed-in accounts, beside the one in front. See
+ * accounts.ts. Kept across a browser restart only when every account in it
+ * would be (MA-7).
+ */
+const OTHERS_COOKIE = `${config.cookieName}_more`;
+
+function setOthersCookie(c: Context, cookies: string[]) {
+  if (!cookies.length) {
+    deleteCookie(c, OTHERS_COOKIE, { path: cookiePath });
+    return;
+  }
+  const remember = cookies.every((cookie) => sessions.resolve(cookie)?.remember === true);
+  setCookie(c, OTHERS_COOKIE, serializeOthers(cookies), {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: isSecureRequest(c),
+    path: cookiePath,
+    ...(remember ? { maxAge: config.sessionRememberTtl } : {}),
+  });
+}
+
+/** The other accounts still signed in, in their order; ended ones are left out. */
+function liveOthers(c: Context): { cookie: string; session: LiveSession }[] {
+  const out: { cookie: string; session: LiveSession }[] = [];
+  for (const cookie of parseOthers(getCookie(c, OTHERS_COOKIE))) {
+    const session = sessions.resolve(cookie);
+    if (session) out.push({ cookie, session });
+  }
+  return out;
+}
+
+/** Whether the account in front may have more beside it, or why not. */
+async function addRefusal(c: Context, front: LiveSession): Promise<string | null> {
+  if (1 + liveOthers(c).length >= MAX_ACCOUNTS) return "add_full";
+  try {
+    const upstream = await getUpstreamSession(front.id, front.authorization, upstreamFor(front.username));
+    if (!mayAddAccounts(upstream)) return "add_not_allowed";
+  } catch {
+    return "add_not_allowed";
+  }
+  return null;
+}
+
+/**
+ * A session just signed in to be added beside the one in front (MA-B). It
+ * comes to the front and the old front joins the others; or, refused, it is
+ * ended and the front stays. Returns the refusal, or null.
+ */
+async function joinAccount(
+  c: Context,
+  created: { cookie: string; session: LiveSession },
+  upstream: Awaited<ReturnType<typeof fetchUpstreamSession>>,
+): Promise<string | null> {
+  const frontCookie = getCookie(c, config.cookieName);
+  const front = sessions.resolve(frontCookie);
+  if (!front || !frontCookie) {
+    // Nobody in front any more: an ordinary sign-in
+    setSessionCookie(c, created.cookie, created.session.remember);
+    return null;
+  }
+  const others = liveOthers(c);
+  const end = (code: string | null) => {
+    sessions.destroy(created.session.id);
+    forgetUpstreamSession(created.session.id);
+    return code;
+  };
+  if (upstreamFor(created.session.username) !== upstreamFor(front.username)) return end("add_other_server");
+  // Both organizations must allow it
+  if (!mayAddAccounts(upstream)) return end("add_not_allowed");
+  const frontRefusal = await addRefusal(c, front);
+  if (frontRefusal === "add_not_allowed") return end(frontRefusal);
+  // Already open: that one comes to the front instead of a second copy
+  if (created.session.account === front.account) return end(null);
+  const existing = others.find((o) => o.session.account === created.session.account);
+  if (existing) {
+    end(null);
+    setSessionCookie(c, existing.cookie, existing.session.remember);
+    setOthersCookie(c, [frontCookie, ...others.filter((o) => o !== existing).map((o) => o.cookie)]);
+    return null;
+  }
+  if (1 + others.length >= MAX_ACCOUNTS) return end("add_full");
+  setSessionCookie(c, created.cookie, created.session.remember);
+  setOthersCookie(c, [frontCookie, ...others.map((o) => o.cookie)]);
+  return null;
+}
+
 function upstreamFailure(c: Context, err: unknown) {
   if (err instanceof UpstreamError) {
     return c.json({ error: err.status === 401 ? "invalid_credentials" : "upstream_error", message: err.message }, err.status as 401 | 502);
@@ -406,8 +494,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.redirect(`${basePath}/?signin_error=rate_limited`, 302);
     }
     const username = (c.req.query("username") ?? "").trim().slice(0, 320);
+    // inbuxa MA-B: another account beside the one in front, if it may have one
+    const front = c.req.query("add") === "1" ? sessions.resolve(getCookie(c, config.cookieName)) : null;
+    if (front) {
+      const refused = await addRefusal(c, front);
+      if (refused) return c.redirect(`${basePath}/?account_error=${refused}`, 302);
+    }
     try {
-      const { location, state } = await startSignIn({ username, base: upstreamFor(username), remember: c.req.query("remember") === "1" });
+      const { location, state } = await startSignIn({
+        username,
+        base: upstreamFor(username),
+        remember: c.req.query("remember") === "1",
+        adding: front !== null,
+      });
       setCookie(c, OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: "Lax", secure: isSecureRequest(c), path: `${basePath}/api/auth`, maxAge: 600 });
       return c.redirect(location, 302);
     } catch (err) {
@@ -452,6 +551,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         userAgent: c.req.header("user-agent") ?? "",
         ip: clientIp(c),
       });
+      if (result.adding) {
+        const refused = await joinAccount(c, { cookie, session }, upstream);
+        if (refused) return c.redirect(`${basePath}/?account_error=${refused}`, 302);
+        return c.redirect(`${basePath}/`, 302);
+      }
       setSessionCookie(c, cookie, session.remember);
       const mailAccount = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
       if (mailAccount) pushPrepare(session.username, mailAccount, pushCredential(session));
@@ -473,7 +577,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       c.header("Retry-After", String(loginFloodLimiter.retryAfterSeconds(rateIp)));
       return c.json({ error: "rate_limited", message: "Too many login attempts. Please wait and try again." }, 429);
     }
-    let body: { username?: string; password?: string; totp?: string; remember?: boolean };
+    let body: { username?: string; password?: string; totp?: string; remember?: boolean; add?: boolean };
     try {
       body = await c.req.json();
     } catch {
@@ -536,6 +640,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         userAgent: c.req.header("user-agent") ?? "",
         ip,
       });
+      // inbuxa MA-B: beside the account in front, when that's what was asked
+      if (body.add && sessions.resolve(getCookie(c, config.cookieName))) {
+        const refused = await joinAccount(c, { cookie, session }, upstream);
+        if (refused) return c.json({ error: refused, message: ADD_REFUSED[refused] }, 403);
+        return c.json({ ok: true, added: true });
+      }
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
       // by the time the browser opens its stream. See push.ts.
@@ -606,7 +716,54 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       sessions.destroy(session.id);
       forgetUpstreamSession(session.id);
     }
+    // inbuxa MA-B: only this account ends; the next one comes to the front
+    const [next, ...rest] = liveOthers(c);
+    if (next) {
+      setSessionCookie(c, next.cookie, next.session.remember);
+      setOthersCookie(c, rest.map((o) => o.cookie));
+      return c.json({ ok: true, next: true });
+    }
     deleteCookie(c, config.cookieName, { path: cookiePath });
+    deleteCookie(c, OTHERS_COOKIE, { path: cookiePath });
+    return c.json({ ok: true });
+  });
+
+  /* inbuxa MA-B: every account signed in here ends. */
+  api.post("/auth/logout-all", async (c) => {
+    const front = sessions.resolve(getCookie(c, config.cookieName));
+    for (const session of [front, ...liveOthers(c).map((o) => o.session)]) {
+      if (!session) continue;
+      sessions.destroy(session.id);
+      forgetUpstreamSession(session.id);
+    }
+    deleteCookie(c, config.cookieName, { path: cookiePath });
+    deleteCookie(c, OTHERS_COOKIE, { path: cookiePath });
+    return c.json({ ok: true });
+  });
+
+  /* inbuxa MA-B: the accounts signed in here, the one in front first, and whether one more may be added. */
+  api.get("/auth/accounts", requireSession, async (c) => {
+    const front = c.get("session");
+    const others = liveOthers(c);
+    if (others.length !== parseOthers(getCookie(c, OTHERS_COOKIE)).length) {
+      setOthersCookie(c, others.map((o) => o.cookie));
+    }
+    const canAdd = (await addRefusal(c, front)) === null;
+    return c.json({
+      accounts: [front, ...others.map((o) => o.session)].map((s, i) => ({ id: s.id, username: s.username, front: i === 0 })),
+      canAdd,
+      max: MAX_ACCOUNTS,
+    });
+  });
+
+  /* inbuxa MA-B: bring another signed-in account to the front. */
+  api.post("/auth/accounts/:id/front", requireSession, async (c) => {
+    const frontCookie = getCookie(c, config.cookieName)!;
+    const others = liveOthers(c);
+    const chosen = others.find((o) => o.session.id === c.req.param("id"));
+    if (!chosen) return c.json({ error: "not_found" }, 404);
+    setSessionCookie(c, chosen.cookie, chosen.session.remember);
+    setOthersCookie(c, [frontCookie, ...others.filter((o) => o !== chosen).map((o) => o.cookie)]);
     return c.json({ ok: true });
   });
 

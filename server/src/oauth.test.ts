@@ -217,3 +217,23 @@ test("push keeps a credential that renews itself", async () => {
   assert.notEqual(second, first, "a fresh access token");
   assert.match(second, /^Bearer mock-at-/);
 });
+
+test("inbuxa MA-B: adding an account asks the server's page to sign in again", async () => {
+  // With nobody in front, add=1 is an ordinary sign-in
+  let res = await call("/api/auth/oauth/start?username=demo@example.com&add=1");
+  assert.equal(new URL(res.headers.get("location")!).searchParams.has("prompt"), false);
+
+  await signIn();
+  res = await call("/api/auth/oauth/start?username=demo@example.com&add=1");
+  assert.equal(res.status, 302);
+  const signInPage = new URL(res.headers.get("location")!);
+  assert.equal(signInPage.searchParams.get("prompt"), "login", "the server's page must not reuse the first sign-in");
+
+  // The mock's page signs the same account in again: it stays one account
+  const approved = await fetch(signInPage, { redirect: "manual" });
+  const back = new URL(approved.headers.get("location")!);
+  res = await call(`/api/auth/callback${back.search}`);
+  assert.equal(res.headers.get("location"), "/");
+  const list = await jsonOf(await call("/api/auth/accounts"));
+  assert.deepEqual(list.accounts.map((a: { username: string }) => a.username), ["demo@example.com"]);
+});

@@ -97,6 +97,8 @@ interface Pending {
   base: string;
   username: string;
   remember: boolean;
+  /** MA-B: signing in a second account beside the one in front. */
+  adding: boolean;
   createdAt: number;
 }
 
@@ -114,13 +116,13 @@ function challengeOf(verifier: string): string {
  * Begin a sign-in. Returns where to send the browser, and the state to bind
  * to it in a cookie.
  */
-export async function start(params: { username: string; base: string; remember: boolean }): Promise<{ location: string; state: string }> {
+export async function start(params: { username: string; base: string; remember: boolean; adding?: boolean }): Promise<{ location: string; state: string }> {
   const metadata = await metadataFor(params.base);
   sweepPending();
   if (pending.size >= MAX_PENDING) throw new UpstreamError("Too many sign-ins in progress", 503);
   const state = randomToken(24);
   const verifier = randomToken(48);
-  pending.set(state, { verifier, base: params.base, username: params.username, remember: params.remember, createdAt: Date.now() });
+  pending.set(state, { verifier, base: params.base, username: params.username, remember: params.remember, adding: Boolean(params.adding), createdAt: Date.now() });
   const scope = ["openid", "offline_access"].filter((s) => metadata.scopes.length === 0 || metadata.scopes.includes(s)).join(" ");
   const url = new URL(metadata.authorizationEndpoint);
   url.searchParams.set("response_type", "code");
@@ -131,6 +133,9 @@ export async function start(params: { username: string; base: string; remember: 
   url.searchParams.set("code_challenge", challengeOf(verifier));
   url.searchParams.set("code_challenge_method", "S256");
   if (params.username) url.searchParams.set("login_hint", params.username);
+  // MA-B: ask again, rather than let the server's page reuse the sign-in of
+  // the account already in front
+  if (params.adding) url.searchParams.set("prompt", "login");
   return { location: url.toString(), state };
 }
 
@@ -177,7 +182,7 @@ export class SignInError extends Error {
  * Finish a sign-in: `state` as it came back in the URL, `boundState` as the
  * browser's cookie holds it. Each state is good for one attempt.
  */
-export async function finish(params: { state: string; boundState: string | undefined; code: string }): Promise<{ tokens: TokenSet; base: string; username: string; remember: boolean }> {
+export async function finish(params: { state: string; boundState: string | undefined; code: string }): Promise<{ tokens: TokenSet; base: string; username: string; remember: boolean; adding: boolean }> {
   const p = pending.get(params.state);
   if (!p || !params.boundState || params.boundState !== params.state) {
     throw new SignInError("state_mismatch", "This sign-in didn't start in this browser. Try again.");
@@ -192,7 +197,7 @@ export async function finish(params: { state: string; boundState: string | undef
     redirect_uri: redirectUri(),
   });
   if (!tokens) throw new SignInError("exchange_failed", "The mail server didn't accept the sign-in. Try again.");
-  return { tokens, base: p.base, username: p.username, remember: p.remember };
+  return { tokens, base: p.base, username: p.username, remember: p.remember, adding: p.adding };
 }
 
 /**
