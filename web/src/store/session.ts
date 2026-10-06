@@ -28,6 +28,10 @@ interface SessionState {
   viewing: Id | null;
   /** Shared and group mailboxes the reader can open (MA-A); see lib/sharedMail. */
   sharedMail: SharedMailAccount[];
+  /** inbuxa MA-B: the accounts signed in in this browser, the one in front first. */
+  signedIn: SignedInAccount[];
+  /** Whether one more may be added (the cap, and both organizations' addAccounts). */
+  canAddAccount: boolean;
   /** The name of an account the reader lost while it was in view. */
   delegationEnded: string | null;
   error: string | null;
@@ -36,7 +40,14 @@ interface SessionState {
   pushState: PushState;
   bootstrap(): Promise<void>;
   login(username: string, password: string, totp: string, remember: boolean): Promise<void>;
+  /** Signs out of the account in front; another signed-in one comes forward. */
   logout(): Promise<void>;
+  /** inbuxa MA-B: ends every account signed in in this browser. */
+  logoutAll(): Promise<void>;
+  /** inbuxa MA-B: finds the other accounts signed in here. */
+  loadSignedIn(): Promise<void>;
+  /** inbuxa MA-B: brings another signed-in account to the front, and reloads. */
+  switchTo(sessionId: string): Promise<void>;
   refresh(): Promise<void>;
   setAccount(id: Id): void;
   /** Show a delegated account's or shared mailbox's mail, or the reader's own with null. */
@@ -59,12 +70,24 @@ interface SessionState {
 
 let refreshing: Promise<void> | null = null;
 
+/** What a signed-in account looks like in the switcher (MA-B). */
+export interface SignedInAccount {
+  id: string;
+  username: string;
+  front: boolean;
+}
+
+/** Which sign-out: the account in front, or every one (MA-B). */
+let signOutPath = "/api/auth/logout";
+
 export const useSession = create<SessionState>((set, get) => ({
   status: "loading",
   session: null,
   accountId: null,
   viewing: null,
   sharedMail: [],
+  signedIn: [],
+  canAddAccount: false,
   delegationEnded: null,
   error: null,
   pushConnected: false,
@@ -116,8 +139,11 @@ export const useSession = create<SessionState>((set, get) => ({
     } catch {
       /* never block signing out over this */
     }
+    const path = signOutPath;
+    signOutPath = "/api/auth/logout";
+    let next = false;
     try {
-      await apiFetch("/api/auth/logout", { method: "POST" });
+      next = Boolean((await apiFetch<{ next?: boolean }>(path, { method: "POST" }))?.next);
     } catch {
       /* ignore */
     }
@@ -127,7 +153,34 @@ export const useSession = create<SessionState>((set, get) => ({
     // problem next -- and the address book cached here is the same argument.
     clearSignedInData();
     client.session = null;
-    set({ status: "anonymous", session: null, accountId: null, viewing: null, sharedMail: [] });
+    // inbuxa MA-B: another signed-in account is in front now
+    if (next) {
+      window.location.reload();
+      return;
+    }
+    set({ status: "anonymous", session: null, accountId: null, viewing: null, sharedMail: [], signedIn: [], canAddAccount: false });
+  },
+
+  async logoutAll() {
+    // The same care as signing out of one, then every account ends
+    signOutPath = "/api/auth/logout-all";
+    await get().logout();
+  },
+
+  async loadSignedIn() {
+    try {
+      const answer = await apiFetch<{ accounts: SignedInAccount[]; canAdd: boolean }>("/api/auth/accounts");
+      set({ signedIn: answer.accounts, canAddAccount: answer.canAdd });
+    } catch {
+      set({ signedIn: [], canAddAccount: false });
+    }
+  },
+
+  async switchTo(sessionId) {
+    await apiFetch(`/api/auth/accounts/${encodeURIComponent(sessionId)}/front`, { method: "POST" });
+    // What was cached belongs to the account that was in front
+    clearSignedInData();
+    window.location.reload();
   },
 
   refresh() {
@@ -213,6 +266,7 @@ function applySession(s: JmapSession, set: (p: Partial<SessionState>) => void) {
   const accountId = s.primaryAccounts[CAP.mail] ?? Object.keys(s.accounts)[0] ?? null;
   set({ status: "authenticated", session: s, accountId, viewing: null, sharedMail: [], error: null });
   void useSession.getState().loadSharedMail();
+  void useSession.getState().loadSignedIn();
 }
 
 client.onUnauthenticated(() => {

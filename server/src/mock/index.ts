@@ -23,9 +23,25 @@ function unauthorized(res: ServerResponse) {
   res.end(JSON.stringify({ type: "about:blank", status: 401, title: "Unauthorized" }));
 }
 
+/*
+ * inbuxa MA-B: an optional second user, so the account switcher has two real
+ * accounts to move between. It signs in with a password only, and reads the
+ * same mailbox: what the tests look at is who the session says it is.
+ */
+const SECOND_USER = process.env.MOCK_SECOND_USER;
+const SECOND_PASS = process.env.MOCK_SECOND_PASS;
+
+/** Who a Basic header signs in as, when it is the second user. */
+function secondUser(req: IncomingMessage): boolean {
+  const h = req.headers.authorization ?? "";
+  if (!SECOND_USER || !h.startsWith("Basic ")) return false;
+  return Buffer.from(h.slice(6), "base64").toString() === `${SECOND_USER}:${SECOND_PASS}`;
+}
+
 function checkAuth(req: IncomingMessage): boolean {
   const h = req.headers.authorization ?? "";
   if (checkBearer(h)) return true;
+  if (secondUser(req)) return true;
   if (!h.startsWith("Basic ") || basicRefused) return false;
   const raw = Buffer.from(h.slice(6), "base64").toString();
   const sep = raw.indexOf(":");
@@ -83,7 +99,14 @@ export const server = createServer(async (req, res) => {
   if (!checkAuth(req)) return unauthorized(res);
   if (url.pathname === "/.well-known/jmap" || url.pathname === "/jmap/session") {
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify(session()));
+    const answer = session() as ReturnType<typeof session> & { username: string };
+    if (secondUser(req)) answer.username = SECOND_USER!;
+    // MA-C: an organization that doesn't allow adding accounts
+    if (process.env.MOCK_NO_ADD_ACCOUNTS === "1") {
+      const own = answer.accounts[ACCOUNT] as { accountCapabilities: Record<string, unknown> };
+      own.accountCapabilities = { ...own.accountCapabilities, "urn:inbuxa:jmap": { addAccounts: false } };
+    }
+    return res.end(JSON.stringify(answer));
   }
   // The account info endpoint; the only place a server reports its edition.
   if (url.pathname === "/api/account" && req.method === "GET") {
