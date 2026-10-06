@@ -12,6 +12,7 @@ import { delegatedAccounts } from "@/lib/delegation";
 import { toast } from "@/ui/toast";
 import { DelegatedBar } from "./DelegatedBar";
 import { AddAccountDialog } from "./AddAccountDialog";
+import { useOtherAccountsUnread, useOtherUnread } from "@/lib/otherAccounts";
 import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
@@ -78,6 +79,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const signedIn = useSession((s) => s.signedIn);
   const canAddAccount = useSession((s) => s.canAddAccount);
   const [addingAccount, setAddingAccount] = useState(false);
+  // inbuxa MA-8: new mail in the accounts not in front
+  useOtherAccountsUnread();
+  const otherUnread = useOtherUnread((s) => s.unread);
+  const anyOtherUnread = Object.values(otherUnread).some((n) => n > 0);
   const bringForward = (sessionId: string) => {
     acctMenu.close();
     // A message being written belongs to the account it was started in
@@ -236,8 +241,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Settings size={21} />
             </Link>
           )}
-          <button className="icon-btn" style={{ width: "auto", padding: "0 2px", borderRadius: 999 }} onClick={acctMenu.open} aria-label={t("Account")}>
+          <button
+            className="icon-btn"
+            style={{ width: "auto", padding: "0 2px", borderRadius: 999, position: "relative" }}
+            onClick={acctMenu.open}
+            aria-label={anyOtherUnread ? t("Account: new mail in another account") : t("Account")}
+          >
             <Avatar who={{ name: session?.username, email: session?.username }} size="sm" />
+            {/* inbuxa MA-8: another signed-in account has unread mail */}
+            {anyOtherUnread && <span className="acct-dot" aria-hidden />}
           </button>
           <Popover anchor={acctMenu.anchor} onClose={acctMenu.close} align="end" width={280}>
             <div style={{ padding: "10px 10px 6px", display: "flex", gap: 10, alignItems: "center" }}>
@@ -259,7 +271,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <MenuItem
                       key={account.id}
                       icon={account.front ? <Check size={16} /> : <Mail size={16} />}
-                      label={<span className="notranslate" translate="no">{account.username}</span>}
+                      label={
+                        <span className="row" style={{ gap: 8, alignItems: "center" }}>
+                          <span className="notranslate grow truncate" translate="no">{account.username}</span>
+                          {!account.front && (otherUnread[account.id] ?? 0) > 0 && (
+                            <span className="nav-count" aria-label={t("Unread in the Inbox: {count}", { count: otherUnread[account.id]! })}>
+                              {otherUnread[account.id]! > 9999 ? "9999+" : otherUnread[account.id]}
+                            </span>
+                          )}
+                        </span>
+                      }
                       active={account.front}
                       onClick={() => (account.front ? acctMenu.close() : bringForward(account.id))}
                     />

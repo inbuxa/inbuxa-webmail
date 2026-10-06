@@ -363,6 +363,30 @@ function liveOthers(c: Context): { cookie: string; session: LiveSession }[] {
   return out;
 }
 
+/** inbuxa MA-8: Inbox unread counts of accounts not in front, briefly kept. */
+const UNREAD_CACHE_MS = 60_000;
+const unreadCache = new Map<string, { unread: number | null; at: number }>();
+
+/** The Inbox's unread count for one session's account, or null when it has none. */
+async function inboxUnread(session: LiveSession): Promise<number | null> {
+  const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
+  const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+  if (!accountId) return null;
+  const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
+    method: "POST",
+    headers: { authorization: session.authorization, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+      methodCalls: [["Mailbox/get", { accountId, ids: null, properties: ["role", "unreadEmails"] }, "0"]],
+    }),
+    signal: AbortSignal.timeout(config.upstreamTimeout),
+  });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { methodResponses?: [string, { list?: { role?: string | null; unreadEmails?: number }[] }, string][] };
+  const inbox = body.methodResponses?.[0]?.[1]?.list?.find((m) => m.role === "inbox");
+  return typeof inbox?.unreadEmails === "number" ? inbox.unreadEmails : null;
+}
+
 /** Whether the account in front may have more beside it, or why not. */
 async function addRefusal(c: Context, front: LiveSession): Promise<string | null> {
   if (1 + liveOthers(c).length >= MAX_ACCOUNTS) return "add_full";
@@ -754,6 +778,32 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       canAdd,
       max: MAX_ACCOUNTS,
     });
+  });
+
+  /*
+   * inbuxa MA-8: the Inbox unread count of each account not in front, asked
+   * through that account's own session, so the menu can say where new mail
+   * is. A minute's cache per account: the web app asks every few minutes, and
+   * several tabs may ask at once.
+   */
+  api.get("/auth/accounts/unread", requireSession, async (c) => {
+    const answers = await Promise.all(
+      liveOthers(c).map(async ({ cookie, session }) => {
+        const cached = unreadCache.get(session.id);
+        if (cached && Date.now() - cached.at < UNREAD_CACHE_MS) return { id: session.id, unread: cached.unread };
+        try {
+          let live: LiveSession | null = session;
+          if (live.tokens && needsRefresh(live.tokens)) live = await refreshSession(cookie, live);
+          if (!live) return { id: session.id, unread: null };
+          const unread = await inboxUnread(live);
+          unreadCache.set(session.id, { unread, at: Date.now() });
+          return { id: session.id, unread };
+        } catch {
+          return { id: session.id, unread: null };
+        }
+      }),
+    );
+    return c.json({ accounts: answers });
   });
 
   /* inbuxa MA-B: bring another signed-in account to the front. */
