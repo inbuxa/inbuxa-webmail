@@ -139,3 +139,18 @@ test("an organization that doesn't allow it keeps adding off", async () => {
     delete process.env.MOCK_NO_ADD_ACCOUNTS;
   }
 });
+
+test("inbuxa MA-8: the accounts not in front report their Inbox unread count", async () => {
+  const b = new Browser();
+  await b.signIn("first@example.com", "first-password");
+  // Alone, there is nothing to report
+  assert.deepEqual((await b.call("/api/auth/accounts/unread")).body.accounts, []);
+  await b.signIn("second@example.com", "second-password", true);
+  const res = await b.call("/api/auth/accounts/unread");
+  assert.equal(res.status, 200);
+  assert.equal(res.body.accounts.length, 1, "only the account not in front");
+  const [other] = res.body.accounts;
+  const listed = (await b.accounts()).find((a) => !a.front)!;
+  assert.equal(other.id, listed.id);
+  assert.equal(typeof other.unread, "number", JSON.stringify(res.body));
+});
