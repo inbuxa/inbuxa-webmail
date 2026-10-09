@@ -10,7 +10,7 @@
 
 > [!NOTE]
 > Development happens on [git.coffeylabs.org/inbuxa/inbuxa-webmail](https://git.coffeylabs.org/inbuxa/inbuxa-webmail); the copy on GitHub is a read-only mirror.
-> Report issues at **[git.coffeylabs.org/inbuxa/inbuxa-webmail/issues](https://git.coffeylabs.org/inbuxa/inbuxa-webmail/issues)**, and join discussions at **[community.coffeylabs.org](https://community.coffeylabs.org)**.
+> Report issues at **[git.coffeylabs.org/inbuxa/inbuxa-webmail/issues](https://git.coffeylabs.org/inbuxa/inbuxa-webmail/issues)**, join discussions at **[community.coffeylabs.org](https://community.coffeylabs.org)**, or chat on **[Discord](https://discord.gg/nqcY4TKfAn)**.
 >
 > This repository was called `ihasmail-inbuxa` until October 2026. Container images are now published as `inbuxa/inbuxa-webmail`; the old `inbuxa/ihasmail-inbuxa` image stops at `2026.9.26-g654d298`.
 
