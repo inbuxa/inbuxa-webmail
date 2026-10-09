@@ -1,8 +1,8 @@
 {
  "_comment": [
-  "Stalwart 0.16.22's Permission enum, as GET /api/schema serves it (enums.Permission).",
+  "The inbuxa server's Permission enum (Stalwart 0.16.22's, plus the permissions inbuxa adds), as GET /api/schema serves it (enums.Permission).",
   "The server's own list is what the Roles screen shows; this copy is what the translations are checked against,",
-  "so a language that misses a permission, or keeps one Stalwart no longer has, fails a test."
+  "so a language that misses a permission, or keeps one the server no longer has, fails a test."
  ],
  "version": "0.16.22",
  "permissions": [
@@ -889,6 +889,122 @@
   {
    "name": "scimAccess",
    "label": "Provision users and groups through the SCIM endpoint"
+  },
+  {
+   "name": "sysAiExplain",
+   "label": "Ask the local model to explain things in the console"
+  },
+  {
+   "name": "sysAuditGet",
+   "label": "Read the audit log"
+  },
+  {
+   "name": "sysAuditExport",
+   "label": "Export the audit log"
+  },
+  {
+   "name": "sysAuditSettingsUpdate",
+   "label": "Change how long audit records are kept"
+  },
+  {
+   "name": "sysAccountLockGet",
+   "label": "See locked accounts and their delegates"
+  },
+  {
+   "name": "sysAccountLockCreate",
+   "label": "Lock accounts"
+  },
+  {
+   "name": "sysAccountLockUpdate",
+   "label": "Change a locked account's delegates"
+  },
+  {
+   "name": "sysAccountLockDestroy",
+   "label": "Unlock accounts"
+  },
+  {
+   "name": "sysLegalHoldGet",
+   "label": "See legal holds"
+  },
+  {
+   "name": "sysLegalHoldCreate",
+   "label": "Place legal holds"
+  },
+  {
+   "name": "sysLegalHoldUpdate",
+   "label": "Widen or release legal holds"
+  },
+  {
+   "name": "sysLegalHoldExport",
+   "label": "Export held data"
+  },
+  {
+   "name": "sysComplianceGet",
+   "label": "See the data inventory and compliance overview"
+  },
+  {
+   "name": "sysMailRuleGet",
+   "label": "See mail flow rules"
+  },
+  {
+   "name": "sysMailRuleUpdate",
+   "label": "Change mail flow rules"
+  },
+  {
+   "name": "sysDlpPolicyGet",
+   "label": "See DLP rules"
+  },
+  {
+   "name": "sysDlpPolicyUpdate",
+   "label": "Change DLP rules"
+  },
+  {
+   "name": "sysDlpReviewGet",
+   "label": "See held mail and open it"
+  },
+  {
+   "name": "sysDlpReviewUpdate",
+   "label": "Release or reject held mail"
+  },
+  {
+   "name": "sysJournalGet",
+   "label": "See journals"
+  },
+  {
+   "name": "sysJournalUpdate",
+   "label": "Change journals"
+  },
+  {
+   "name": "sysJournalSearch",
+   "label": "Search and read journaled mail"
+  },
+  {
+   "name": "sysJournalExport",
+   "label": "Export journaled mail"
+  },
+  {
+   "name": "sysSecurityAccept",
+   "label": "Accept security to-do items"
+  },
+  {
+   "name": "sysDeliverabilityGet",
+   "label": "See deliverability reports"
+  },
+  {
+   "name": "sysDeliverabilityUpdate",
+   "label": "Change which blocklists are checked"
+  },
+  {
+   "name": "sysDeliverabilityCheck",
+   "label": "Run the deliverability check now"
+  },
+  {
+   "name": "sysScheduledReportGet",
+   "label": "See scheduled reports"
+  },
+  {
+   "name": "sysScheduledReportUpdate",
+   "label": "Create, change and send scheduled reports"
   },
   {
    "name": "sysAccountGet",
