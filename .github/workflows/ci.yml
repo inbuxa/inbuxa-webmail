@@ -242,6 +242,57 @@ jobs:
                  --data @- "$API"
           echo "release $TAG created"
 
+  # The webmail for a host install (the installer's --webmail host), taken
+  # out of each architecture's image that was just published rather than
+  # built again: the tarball is the /app the image runs, production
+  # node_modules included. VERSION records what the image carries as
+  # IHASMAIL_VERSION. It needs Node 26, as the image has.
+  files:
+    if: ${{ vars.BUILD_ON == 'github' && startsWith(github.ref, 'refs/tags/inbuxa-v') }}
+    needs: [version, publish]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      DOCKER_TAG: ${{ needs.version.outputs.docker_tag }}
+      TAG: ${{ github.ref_name }}
+      GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+    steps:
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ vars.REGISTRY }}
+          username: jcoffey-dev
+          password: ${{ secrets.GITEA_TOKEN }}
+      - name: take the app out of the images
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          for arch in amd64 arm64; do
+            docker pull -q --platform "linux/$arch" "$IMAGE:$DOCKER_TAG"
+            id="$(docker create --platform "linux/$arch" "$IMAGE:$DOCKER_TAG")"
+            rm -rf app && docker cp "$id:/app" app
+            docker rm -f "$id" >/dev/null
+            printf '%s\n' "$VERSION" > app/VERSION
+            tar --owner=0 --group=0 -czf "out/inbuxa-webmail-linux-$arch.tar.gz" -C app .
+          done
+          (cd out && sha256sum inbuxa-webmail-linux-*.tar.gz > SHA256SUMS && cat SHA256SUMS)
+      # A re-run replaces the assets rather than adding a second file of the
+      # same name. Uploads cross Cloudflare: HTTP/1.1, with retries.
+      - name: attach them to the release
+        run: |
+          set -euo pipefail
+          api="$GITEA_URL/api/v1/repos/$GITHUB_REPOSITORY"
+          auth="Authorization: token $GITEA_TOKEN"
+          retry=(--retry 5 --retry-all-errors --retry-delay 15)
+          rel="$(curl -fsS "${retry[@]}" -H "$auth" "$api/releases/tags/$TAG" | jq -r .id)"
+          assets="$(curl -fsS "${retry[@]}" -H "$auth" "$api/releases/$rel/assets")"
+          for f in out/inbuxa-webmail-linux-amd64.tar.gz out/inbuxa-webmail-linux-arm64.tar.gz out/SHA256SUMS; do
+            name="$(basename "$f")"
+            old="$(jq -r --arg n "$name" '.[] | select(.name == $n) | .id' <<<"$assets")"
+            for id in $old; do curl -fsS "${retry[@]}" -o /dev/null -X DELETE -H "$auth" "$api/releases/$rel/assets/$id"; done
+            curl -fsS --http1.1 "${retry[@]}" -o /dev/null -X POST -H "$auth" -F "attachment=@$f" "$api/releases/$rel/assets?name=$name"
+            echo "attached $name"
+          done
+
   # ------------------------------------------------------ ghcr replica ------
   # Copies the release image from the Gitea registry, which stays the
   # authoritative one, to ghcr.io under the same version tag and :latest. It is
@@ -325,7 +376,7 @@ jobs:
   # for, and what a Gitea PR shows.
   report:
     if: ${{ always() && vars.BUILD_ON == 'github' }}
-    needs: [pending, node, docker-build, version, build, publish]
+    needs: [pending, node, docker-build, version, build, publish, files]
     runs-on: ubuntu-latest
     steps:
       - env:
