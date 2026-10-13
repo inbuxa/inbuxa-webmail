@@ -20,6 +20,7 @@ import {
   UpstreamError,
   absoluteUpstream,
   expandTemplate,
+  failureReason,
   fetchUpstreamSession,
   hasStalwartRegistry,
   forgetUpstreamSession,
@@ -242,7 +243,7 @@ const requireSession: MiddlewareHandler<Env> = async (c, next) => {
     } catch (err) {
       // Couldn't ask the server. The token may still have a few minutes; if
       // not, the call itself will say so.
-      console.warn("[ihasmail] token refresh failed:", (err as Error).message);
+      console.warn("[ihasmail] token refresh failed:", failureReason(err));
     }
     if (!session) {
       deleteCookie(c, config.cookieName, { path: cookiePath });
@@ -563,7 +564,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       setCookie(c, OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: "Lax", secure: isSecureRequest(c), path: `${basePath}/api/auth`, maxAge: 600 });
       return c.redirect(location, 302);
     } catch (err) {
-      console.warn("[ihasmail] could not start sign-in:", (err as Error).message);
+      console.warn("[ihasmail] could not start sign-in:", failureReason(err));
       return c.redirect(`${basePath}/?signin_error=unavailable`, 302);
     }
   });
@@ -584,7 +585,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       result = await finishSignIn({ state, boundState, code });
     } catch (err) {
       if (err instanceof SignInError) return fail(err.code);
-      console.warn("[ihasmail] sign-in exchange failed:", (err as Error).message);
+      console.warn("[ihasmail] sign-in exchange failed:", failureReason(err));
       return fail("unavailable");
     }
     const authorization = `Bearer ${result.tokens.access}`;
@@ -614,7 +615,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (mailAccount) pushPrepare(session.username, mailAccount, pushCredential(session));
       return c.redirect(`${basePath}/`, 302);
     } catch (err) {
-      console.warn("[ihasmail] sign-in failed after the exchange:", (err as Error).message);
+      console.warn("[ihasmail] sign-in failed after the exchange:", failureReason(err));
       return fail("unavailable");
     }
   });

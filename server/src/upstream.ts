@@ -31,6 +31,27 @@ export class UpstreamError extends Error {
   }
 }
 
+/**
+ * An error for the log, with the reason Node keeps underneath it.
+ *
+ * When fetch can't reach the server at all -- DNS, a refused connection, a
+ * certificate Node doesn't trust -- its message is only "fetch failed" and
+ * the reason is on `cause`. Without it, an operator whose proxy never saw the
+ * request has nothing to go on.
+ */
+export function failureReason(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  let cause = err.cause;
+  // Several addresses tried, all failed: the first says enough.
+  if (cause instanceof AggregateError && !cause.message && cause.errors[0] instanceof Error) {
+    cause = cause.errors[0];
+  }
+  if (!(cause instanceof Error)) return err.message;
+  const code = (cause as Error & { code?: unknown }).code;
+  const detail = typeof code === "string" && !cause.message.includes(code) ? `${code}: ${cause.message}` : cause.message;
+  return detail ? `${err.message} (${detail})` : err.message;
+}
+
 const sessionCache = new Map<string, { session: UpstreamSession; fetchedAt: number }>();
 const SESSION_CACHE_MS = 5 * 60_000;
 
