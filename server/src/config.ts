@@ -302,7 +302,12 @@ export const config = {
    * container's hostname. See nodes.ts.
    */
   nodeName: env("NODE_NAME", ""),
-  host: env("HOST", "0.0.0.0"),
+  /**
+   * The address to listen on. `::` takes IPv6 and IPv4 on one socket; a
+   * kernel without IPv6 at all refuses it, and index.ts then falls back to
+   * `0.0.0.0` rather than failing to start.
+   */
+  host: env("HOST", "::"),
   port: int("PORT", 8080),
   /**
    * The subpath this instance answers on: `/mail` for a proxy that maps

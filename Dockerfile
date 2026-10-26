@@ -33,7 +33,7 @@ FROM mirror.gcr.io/library/node:26-alpine AS runtime
 ARG IHASMAIL_VERSION=""
 ARG BASE_PATH=""
 ENV NODE_ENV=production \
-    HOST=0.0.0.0 \
+    HOST=:: \
     PORT=8080 \
     STATIC_DIR=/app/web/dist \
     SESSION_FILE=/data/sessions.json \
