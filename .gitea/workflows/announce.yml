@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: release tag to announce, e.g. inbuxa-v2026.10.5-g17a8093
+        description: release tag to announce, e.g. inbuxa-v27.1-rc.1
         required: true
 
 jobs:

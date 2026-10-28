@@ -1,44 +1,37 @@
 /**
- * Work out this build's version: `2026.8.30+pr129`.
+ * Work out this build's version: `27.1-rc.1`, or `27.1-rc.1+pr129` between
+ * releases.
  *
- *   2026.8.30  the date of the commit this was built from
- *   +pr129     the pull request it arrived through
+ *   27.1-rc.1  the release this commit belongs to, from the VERSION file
+ *   +pr129     the pull request it arrived through, for a commit that is not
+ *              itself that release
  *
- * The date leads because ihasmail's version used to be `2.16.<pr>`, where `16`
- * was the Stalwart generation it targeted -- and Stalwart 1.0 will leave that
- * with nowhere to go. `2.1` would sort *below* the `2.16` already deployed, so
- * every image and About screen would read as a downgrade. Tying our
- * numbering to somebody else's was the mistake; which Stalwart a build needs is
- * said properly in the README badge and KNOWN-ISSUES, where it can be precise
- * ("0.16 or newer; tested against 0.16.20") rather than one digit.
- *
- * The pull request moved into build metadata, after the `+`, because it is
- * provenance rather than a position in a sequence: at a hundred merges a week
- * it climbs without bound and says nothing about how new a build is. SemVer
- * ignores everything after the `+` when comparing versions, which is the right
- * reading -- two builds from the same day differ in where they came from, not
- * in rank. Nothing here relies on that comparison anyway: images are pruned
- * oldest-first by creation time and rollbacks name a git ref.
+ * The webmail is numbered with the rest of the INBUXA suite: 27.1 is a series,
+ * 27.1.3 a patch of it, 27.1-rc.1 a release candidate. VERSION says which one
+ * main is working towards, and changes only when a release is cut. The commit
+ * tagged `inbuxa-v<VERSION>` *is* that release and reports it bare; every
+ * other commit reports it with where the commit came from after a `+`, so a
+ * build from main between two releases never passes itself off as the
+ * release. SemVer ignores everything after the `+` when comparing, which is
+ * the right reading: provenance, not rank.
  *
  * A commit that did not arrive through a pull request carries its short SHA
- * instead -- `2026.8.30+g1fa6578` -- which is honest about being some commit on
- * that day rather than claiming a pull request it was only built after.
+ * instead -- `27.1-rc.1+g1fa6578`.
  *
- * The date is the commit's own, not today's, so rebuilding an old commit gives
- * the same answer it gave the first time. It comes from the commit object,
- * timezone included, so two machines agree.
+ * Until 27.1 the version was the commit's date (`2026.8.30+pr129`). Those
+ * builds sort *above* 27.1 to anything that compares numerically, which is
+ * said in the release notes: a pinned install switches by hand, once.
  *
- * Nothing writes a version back into the tree: a committed one would always be
- * describing a merge that had not happened yet, and every branch would collide
- * on the same line. `package.json` no longer carries it either -- npm wants the
- * field, so it stays at `0.0.0`, which is what an unversioned build reports and
- * is meant to look wrong.
+ * `package.json` does not carry the version -- npm wants the field, so it
+ * stays at `0.0.0`, which is what a build with no git to ask reports and is
+ * meant to look wrong.
  *
  * `.dockerignore` excludes `.git`, so an image build cannot run any of this.
  * It takes the answer through `--build-arg IHASMAIL_VERSION=...` instead, and
- * whoever builds is responsible for computing it -- see ihasmail-deploy.sh.
+ * whoever builds is responsible for computing it -- see deploy.example.sh.
  */
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -51,48 +44,62 @@ function git(...args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
-const PR_SUBJECT = /^Merge pull request #(\d+)\b/;
+/** The suite's release form: YY.M, YY.M.N or YY.M-rc.N. */
+const RELEASE = /^[1-9][0-9]\.([1-9]|1[0-2])(\.[1-9][0-9]*|-rc\.[1-9][0-9]*)?$/;
 
 /**
- * The version for a commit, from the three things about it that decide one.
- * Pure, so the rules can be exercised without a repository staged to produce
- * them: `{ date: "2026-08-30", subject: "Merge pull request #129 from ...",
- * sha: "1fa6578" }` gives `2026.8.30+pr129`.
- *
- * Leading zeros are stripped because a version field may not carry them, so
- * September is `9` rather than `09`.
+ * A pull request's merge commit. Gitea writes
+ * `Merge pull request 'Title' (#76) from branch into main`; GitHub, which
+ * merged the older history, `Merge pull request #129 from owner/branch`. The
+ * title may hold a `(#n)` of its own, so the number is the last one before
+ * ` from `.
  */
-export function formatVersion({ date, subject = "", sha }) {
-  const [y, m, d] = date.split("-");
-  const calendar = `${Number(y)}.${Number(m)}.${Number(d)}`;
-  const pr = PR_SUBJECT.exec(subject)?.[1];
-  return pr ? `${calendar}+pr${pr}` : `${calendar}+g${sha}`;
+const PR_SUBJECT = /^Merge pull request (?:#(\d+)\b|'.*' \(#(\d+)\) from )/;
+
+/** The release named in VERSION; anything else there is a mistake to stop on. */
+export function readRelease() {
+  const release = readFileSync(join(root, "VERSION"), "utf8").trim();
+  if (!RELEASE.test(release)) throw new Error(`VERSION says "${release}", which is not YY.M, YY.M.N or YY.M-rc.N`);
+  return release;
+}
+
+/**
+ * The version for a commit, from the things about it that decide one. Pure,
+ * so the rules can be exercised without a repository staged to produce them:
+ * `{ release: "27.1-rc.1", subject: "Merge pull request 'x' (#129) from y
+ * into main", sha: "1fa6578" }` gives `27.1-rc.1+pr129`, and the same with
+ * `tagged: true` gives `27.1-rc.1`.
+ */
+export function formatVersion({ release, tagged = false, subject = "", sha }) {
+  if (tagged) return release;
+  const m = PR_SUBJECT.exec(subject);
+  const pr = m?.[1] ?? m?.[2];
+  return pr ? `${release}+pr${pr}` : `${release}+g${sha}`;
 }
 
 /**
  * The version for the commit checked out here, or null when there is no git to
  * ask -- an unpacked tarball, or the Docker build context.
  */
-export function versionFromGit() {
+export function versionFromGit(release) {
   let head;
-  let date;
   try {
     head = git("rev-parse", "--short", "HEAD");
-    // %cs is the committer date in the commit's own timezone, which is stored
-    // in the commit -- so this does not depend on the clock or zone of whoever
-    // is building.
-    date = git("show", "-s", "--format=%cs", "HEAD");
   } catch {
     return null;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  // Read only once git has answered: the running image has neither git nor
+  // VERSION, and is told its version instead.
+  release ??= readRelease();
   let subject = "";
+  let tags = [];
   try {
     subject = git("show", "-s", "--format=%s", "HEAD");
+    tags = git("tag", "--points-at", "HEAD").split("\n");
   } catch {
-    /* no subject to read; fall through to the SHA */
+    /* nothing more to read; fall through to the SHA */
   }
-  return formatVersion({ date, subject, sha: head });
+  return formatVersion({ release, tagged: tags.includes(`inbuxa-v${release}`), subject, sha: head });
 }
 
 /** Whatever the environment was told, else git, else an answer that looks wrong. */

@@ -1112,7 +1112,7 @@ export const catalog: Catalog = {
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.": "为某个邮件应用或设备单独设置的密码，可以单独吊销。应用专用密码会跳过两步验证码，因此在无法输入验证码的应用中仍然可用。",
     "Copy it into {name} now — it isn't shown again.": "请立即把它复制到 {name}——它不会再次显示。",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.": "目录中没有找到其他用户，因此无法添加新的共享对象。已有的共享列在下方，仍可移除。",
-    "{app}'s own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about the mail server; what this build needs from the server is the line above.": "{app} 自身的版本号是其构建所用提交的日期，后面跟着该提交的来源：{example} 表示由 2026 年 8 月 30 日的一个提交构建而成，而该提交来自第 129 号拉取请求。未经拉取请求的提交则改用简短 SHA 表示——{sha}。版本号刻意不包含任何关于邮件服务器的信息；此版本对服务器的要求见上一行。",
+    "{app}'s own version is the suite release it belongs to: {example} is the first release candidate of the 27.1 series. A build made between releases adds where its commit came from — the pull request it arrived through, or its short SHA if it did not come through one, as in {build}. The version deliberately says nothing about the mail server; what this build needs from the server is the line above.": "{app} 自身的版本号是它所属的套件版本：{example} 是 27.1 系列的第一个候选版本。在两个版本之间构建的版本还会附上其提交的来源——经由拉取请求的提交附上该请求的编号，否则附上简短 SHA，如 {build}。版本号刻意不包含任何关于邮件服务器的信息；此版本对服务器的要求见上一行。",
 
     // ── Constant labels ────────────────────────────────────────────────
     "Add": "添加",

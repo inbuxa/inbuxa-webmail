@@ -210,14 +210,21 @@ behavior is rewritten rather than deleted, so the reversal stays on the record.
 
 #### Version numbers
 
-`2026.8.30+pr129` is the date of the commit a build came from and the pull
-request that commit arrived through; a commit that did not come through one
-carries its short SHA instead (`2026.8.30+g1fa6578`). It is worked out from git
-at build time — nothing writes a version into the tree, and `package.json` stays
-at `0.0.0`. `node scripts/version.mjs` prints it for the current checkout.
+The webmail is numbered with the rest of the INBUXA suite: `27.1` is a series,
+`27.1.3` a patch of it and `27.1-rc.1` a release candidate. The `VERSION` file
+says which one `main` is working towards, and changes only when a release is
+cut. The commit tagged `inbuxa-v<VERSION>` reports it bare; every other build
+adds the pull request its commit arrived through (`27.1-rc.1+pr129`), or its
+short SHA for a commit that did not come through one (`27.1-rc.1+g1fa6578`).
+`package.json` stays at `0.0.0`. `node scripts/version.mjs` prints the version
+for the current checkout.
 
 The PR number sits after the `+` as build metadata because it records where a
-build came from, not how new it is. The version says nothing about the mail server on
+build came from, not how new it is. A release candidate is published as a
+pre-release, under its own image tag and `27.1-rc`, and never moves `latest`.
+Builds from before 27.1 were numbered by date (`2026.8.30+pr129`); anything that
+compares versions as numbers ranks those above 27.1, so a pinned install
+switches by hand, once. The version says nothing about the mail server on
 purpose: the server's own version is its own business. Building an image with the version on it,
 and the single-host `deploy.example.sh`, are covered in
 [Installing](https://docs.ihasmail.org/install/).

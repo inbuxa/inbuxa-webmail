@@ -34,7 +34,7 @@ set -euo pipefail
 
 # --- what to deploy, and where ----------------------------------------------
 # The checkout to deploy from. It must be a git clone: the version number is
-# read from its history (see scripts/version.mjs).
+# read from VERSION and its history (see scripts/version.mjs).
 APP="${IHASMAIL_APP:-$HOME/apps/ihasmail}"
 # Environment file passed to the container. Keep it outside the repo's tracked
 # files -- it holds APP_SECRET and the upstream URL. Never read by this script.
@@ -214,25 +214,41 @@ prune_old_images() {
   printf '%s\n' "$stale" | xargs -r docker rmi >/dev/null 2>&1 || true
 }
 
-# The version is the same sum scripts/version.mjs does -- the commit's own
-# date, plus the pull request it arrived through or its short SHA -- done here
-# in shell because a host that only runs containers has git and docker and no
+# The version is the same sum scripts/version.mjs does -- the release in
+# VERSION, bare on the commit tagged inbuxa-v<VERSION>, else followed by the
+# pull request the commit arrived through or its short SHA -- done here in
+# shell because a host that only runs containers has git and docker and no
 # node. Given IHASMAIL_VERSION, use it as given, as the script would.
+#
+# A rollback to a build from before 27.1 checks out a tree with no VERSION;
+# that one is named the way it was then, by the commit's date
+# (2026.10.26+gcff6f1f), so it reports what it reported when it was current.
 version_from_git() {
-  local date subject sha y m d
-  date="$(git show -s --format=%cs HEAD)"
+  local release subject sha y m d
   subject="$(git show -s --format=%s HEAD)"
   sha="$(git rev-parse --short HEAD)"
-  IFS=- read -r y m d <<<"$date"
-  if [[ "$subject" =~ ^Merge\ pull\ request\ \#([0-9]+) ]]; then
-    printf '%d.%d.%d+pr%s\n' "$((10#$y))" "$((10#$m))" "$((10#$d))" "${BASH_REMATCH[1]}"
+  if [ ! -f VERSION ]; then
+    IFS=- read -r y m d <<<"$(git show -s --format=%cs HEAD)"
+    if [[ "$subject" =~ ^Merge\ pull\ request\ \#([0-9]+) ]]; then
+      printf '%d.%d.%d+pr%s\n' "$((10#$y))" "$((10#$m))" "$((10#$d))" "${BASH_REMATCH[1]}"
+    else
+      printf '%d.%d.%d+g%s\n' "$((10#$y))" "$((10#$m))" "$((10#$d))" "$sha"
+    fi
+    return
+  fi
+  release="$(cat VERSION)"
+  if git tag --points-at HEAD | grep -qxF "inbuxa-v$release"; then
+    printf '%s\n' "$release"
+  elif [[ "$subject" =~ ^Merge\ pull\ request\ \#([0-9]+) ]] \
+    || [[ "$subject" =~ ^Merge\ pull\ request\ \'.*\'\ \(\#([0-9]+)\)\ from\  ]]; then
+    printf '%s+pr%s\n' "$release" "${BASH_REMATCH[1]}"
   else
-    printf '%d.%d.%d+g%s\n' "$((10#$y))" "$((10#$m))" "$((10#$d))" "$sha"
+    printf '%s+g%s\n' "$release" "$sha"
   fi
 }
 VERSION="${IHASMAIL_VERSION:-$(version_from_git)}"
-# A Docker tag may not contain "+", and every version has one now:
-# 2026.8.30+pr129, or +g1fa6578 for a commit that did not come through a pull
+# A Docker tag may not contain "+", which every build between releases has:
+# 27.1-rc.1+pr129, or +g1fa6578 for a commit that did not come through a pull
 # request. The image is tagged with the "+" turned into "-"; what the build is
 # *told* it is keeps the real form, so About and /api/health still report it
 # correctly.

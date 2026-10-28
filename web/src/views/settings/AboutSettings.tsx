@@ -79,7 +79,7 @@ export function AboutSettings() {
         </tbody>
       </table>
       <p className="hint" style={{ marginTop: 6 }}>{t("This webmail works with the inbuxa mail server, and sign-in refuses a server that doesn't offer what it needs.")}</p>
-      <p className="hint">{tNode("{app}'s own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about the mail server; what this build needs from the server is the line above.", { example: <strong className="notranslate" translate="no">v2026.8.30+pr129</strong>, sha: <code>+g1fa6578</code> }, { app: appName })}</p>
+      <p className="hint">{tNode("{app}'s own version is the suite release it belongs to: {example} is the first release candidate of the 27.1 series. A build made between releases adds where its commit came from — the pull request it arrived through, or its short SHA if it did not come through one, as in {build}. The version deliberately says nothing about the mail server; what this build needs from the server is the line above.", { example: <strong className="notranslate" translate="no">v27.1-rc.1</strong>, build: <code>v27.1-rc.1+pr129</code> }, { app: appName })}</p>
       <h2>{t("Server capabilities")}</h2>
       <div className="row wrap gap-4">
         {caps.map((c) => <span key={c} className="chip mono" style={{ fontSize: ".78em" }}>{c.replace("urn:ietf:params:jmap:", "")}</span>)}
