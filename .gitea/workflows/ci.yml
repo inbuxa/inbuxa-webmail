@@ -15,14 +15,16 @@
 # If GitHub is ever unavailable, unsetting BUILD_ON here is the whole
 # fallback: the jobs below take over again unchanged.
 #
-# Releases are cut by pushing a tag named `inbuxa-v<version>`, where
-# <version> is what scripts/version.mjs says for the tagged commit with the
-# `+` turned into `-` (e.g. inbuxa-v2026.9.22-g1a2b3c4). The prefix matters:
+# Releases are cut by pushing a tag named `inbuxa-v<VERSION>`, where VERSION
+# is the file at the root: the suite's release number, e.g. inbuxa-v27.1-rc.1
+# or inbuxa-v27.1.3. A release candidate is published as a pre-release and
+# tagged `27.1-rc.1` and `27.1-rc`, never `latest`; a release moves its own
+# tag, its series and `latest` (scripts/release-version.sh). The prefix matters:
 # this repository carries upstream ihasmail's own `v...` tags, on commits it
 # shares with upstream, and a publish keyed on `v*` would ship plain ihasmail
 # under the INBUXA name the moment one arrived. Only `inbuxa-v` tags publish.
-# A tag publishes only if it names its own commit's version and that commit is
-# on main. There is no release schedule yet; tags are cut by hand.
+# A tag publishes only if it names its own commit's VERSION and that commit is
+# on main. There is no release schedule; tags are cut by hand.
 
 # Every job runs in an image pinned by digest (tag in the trailing comment),
 # and the only action used is coffey-labs/actions/checkout pinned by SHA. The
@@ -80,6 +82,7 @@ jobs:
       - run: su node -p -c "npm ci --ignore-scripts"
       - run: su node -p -c "npm run typecheck"
       - run: su node -p -c "npm test"
+      - run: sh scripts/release-version.test.sh
       - run: su node -p -c "npm run build"
 
   # ------------------------------------------------------------- build ------
@@ -113,7 +116,8 @@ jobs:
       image: node:26-bookworm-slim@sha256:582460f614631b59b824ac6020533b9bf339c7fdf3a6d7db31abb6b4065f0212 # 26-bookworm-slim
     outputs:
       version: ${{ steps.v.outputs.VERSION }}
-      docker_tag: ${{ steps.v.outputs.DOCKER_TAG }}
+      tags: ${{ steps.v.outputs.TAGS }}
+      prerelease: ${{ steps.v.outputs.PRERELEASE }}
     steps:
       - uses: coffey-labs/actions/checkout@fab0c4d45e0162963965f1555df27b7bed5e20ec
         with:
@@ -124,14 +128,19 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          R="$(cat VERSION)"
+          [ "$TAG" = "inbuxa-v$R" ] || { echo "!! $TAG does not name this commit's VERSION; expected inbuxa-v$R"; exit 1; }
+          # version.mjs reports VERSION bare only on the commit tagged with it.
           V="$(node scripts/version.mjs)"
-          want="inbuxa-v${V/+/-}"
-          [ "$TAG" = "$want" ] || { echo "!! $TAG does not name this commit's version; expected $want"; exit 1; }
+          [ "$V" = "$R" ] || { echo "!! version.mjs says $V for $TAG, not $R"; exit 1; }
           git merge-base --is-ancestor "$(git rev-parse "${TAG}^{commit}")" origin/main \
             || { echo "!! $TAG is not on main"; exit 1; }
+          TAGS="$(sh scripts/release-version.sh tags "$V" | tr '\n' ' ')"
+          if sh scripts/release-version.sh prerelease "$V"; then P=true; else P=false; fi
           echo "VERSION=$V" >> "$GITHUB_OUTPUT"
-          echo "DOCKER_TAG=${V/+/-}" >> "$GITHUB_OUTPUT"
-          echo "VERSION=$V DOCKER_TAG=${V/+/-}"
+          echo "TAGS=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "PRERELEASE=$P" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$V TAGS=$TAGS PRERELEASE=$P"
 
   # Multi-arch image at <REGISTRY>/inbuxa/inbuxa-webmail, then the release.
   # arm64 is built under QEMU on this amd64 host, which is slow but fine for
@@ -151,12 +160,13 @@ jobs:
       REGISTRY: ${{ vars.REGISTRY }}
       IMAGE: ${{ vars.REGISTRY }}/${{ github.repository }}
       VERSION: ${{ needs.version.outputs.version }}
-      DOCKER_TAG: ${{ needs.version.outputs.docker_tag }}
+      TAGS: ${{ needs.version.outputs.tags }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
       PACKAGE_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
     steps:
       - uses: coffey-labs/actions/checkout@fab0c4d45e0162963965f1555df27b7bed5e20ec
       - run: |
-          test -n "$REGISTRY" && test -n "$VERSION" && test -n "$DOCKER_TAG"
+          test -n "$REGISTRY" && test -n "$VERSION" && test -n "$TAGS"
           test -n "$PACKAGE_TOKEN" || { echo "PACKAGE_TOKEN secret is not set on this repository" >&2; exit 1; }
           echo "$PACKAGE_TOKEN" | docker login -u jcoffey-dev --password-stdin "$REGISTRY"
           docker run --privileged --rm tonistiigi/binfmt --install arm64
@@ -166,10 +176,9 @@ jobs:
             --platform linux/amd64,linux/arm64 \
             --build-arg IHASMAIL_VERSION="$VERSION" \
             --provenance=false --sbom=false \
-            --tag "$IMAGE:$DOCKER_TAG" \
-            --tag "$IMAGE:latest" \
+            $(for t in $TAGS; do printf '%s %s:%s ' --tag "$IMAGE" "$t"; done) \
             --push .
-          docker buildx imagetools inspect "$IMAGE:$DOCKER_TAG"
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
       # Show the package on the repository's Packages tab. Idempotent.
       - run: |
           apk add --no-cache -q curl
@@ -184,9 +193,10 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -eu
-          body="INBUXA webmail $VERSION.\n\nImage: \`$IMAGE:$DOCKER_TAG\` (linux/amd64, linux/arm64), also tagged \`latest\`."
+          also="$(for t in $TAGS; do [ "$t" = "$VERSION" ] || printf '`%s` ' "$t"; done)"
+          body="INBUXA webmail $VERSION.\n\nImage: \`$IMAGE:$VERSION\` (linux/amd64, linux/arm64), also tagged ${also% }."
           curl -fsS -o /dev/null -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
-            --data "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"$body\"}" \
+            --data "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"$body\",\"prerelease\":$PRERELEASE}" \
             "$CI_SERVER_INTERNAL/api/v1/repos/$GITHUB_REPOSITORY/releases"
           echo "release $TAG created"
       - if: always()

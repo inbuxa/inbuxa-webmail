@@ -14,7 +14,7 @@
 # arrives here as an ordinary push, and the status lands on its head commit,
 # which is where Gitea's PR looks for it.
 #
-# Releases are cut by pushing a tag named `inbuxa-v<version>` (see
+# Releases are cut by pushing a tag named `inbuxa-v<VERSION>` (see
 # .gitea/workflows/ci.yml for why the prefix matters: this repository carries
 # upstream ihasmail's own `v...` tags, and only `inbuxa-v` tags publish).
 #
@@ -89,6 +89,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
+      - run: sh scripts/release-version.test.sh
       - run: npm run build
 
   # ------------------------------------------------------------- build ------
@@ -111,7 +112,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
-      docker_tag: ${{ steps.v.outputs.docker_tag }}
+      tags: ${{ steps.v.outputs.tags }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -124,15 +126,19 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          R="$(cat VERSION)"
+          [ "$TAG" = "inbuxa-v$R" ] || { echo "::error::$TAG does not name this commit's VERSION; expected inbuxa-v$R"; exit 1; }
+          # version.mjs reports VERSION bare only on the commit tagged with it.
           V="$(node scripts/version.mjs)"
-          want="inbuxa-v${V/+/-}"
-          [ "$TAG" = "$want" ] || { echo "::error::$TAG does not name this commit's version; expected $want"; exit 1; }
+          [ "$V" = "$R" ] || { echo "::error::version.mjs says $V for $TAG, not $R"; exit 1; }
           git merge-base --is-ancestor "$(git rev-parse "${TAG}^{commit}")" origin/main \
             || { echo "::error::$TAG is not on main"; exit 1; }
+          tags="$(sh scripts/release-version.sh tags "$V" | tr '\n' ' ')"
+          if sh scripts/release-version.sh prerelease "$V"; then p=true; else p=false; fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          # A Docker tag may not contain '+', so build metadata becomes '-'.
-          echo "docker_tag=${V/+/-}" >> "$GITHUB_OUTPUT"
-          echo "version $V -> tag ${V/+/-}"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$p" >> "$GITHUB_OUTPUT"
+          echo "version $V -> tags $tags (prerelease: $p)"
 
   # Each architecture on its own native runner, pushed as an untagged image by
   # digest; `publish` joins the two digests into one multi-arch tag.
@@ -187,7 +193,8 @@ jobs:
           overwrite: true
           if-no-files-found: error
 
-  # Joins the digests into `:<version>` and `:latest`, links the package to
+  # Joins the digests into the release's tags (`:<version>`, plus its series
+  # and `:latest` for a release, `:<series>-rc` for a candidate), links the package to
   # the repository on Gitea, then creates the release there -- last, so a
   # release on the page always has its image behind it. The release is made
   # with GITEA_TOKEN, a user's token, so Gitea's announce.yml fires for it;
@@ -211,12 +218,14 @@ jobs:
           password: ${{ secrets.GITEA_TOKEN }}
       - name: Create the manifest
         env:
-          DOCKER_TAG: ${{ needs.version.outputs.docker_tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAGS: ${{ needs.version.outputs.tags }}
         run: |
-          refs=()
+          refs=() tags=()
           for f in /tmp/digests/*; do refs+=("${IMAGE}@sha256:$(basename "$f")"); done
-          docker buildx imagetools create -t "${IMAGE}:${DOCKER_TAG}" -t "${IMAGE}:latest" "${refs[@]}"
-          docker buildx imagetools inspect "${IMAGE}:${DOCKER_TAG}"
+          for t in $TAGS; do tags+=(-t "${IMAGE}:$t"); done
+          docker buildx imagetools create "${tags[@]}" "${refs[@]}"
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}"
       # Shows the package on the repository's Packages tab. Idempotent.
       - env:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
@@ -228,7 +237,8 @@ jobs:
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.version.outputs.version }}
-          DOCKER_TAG: ${{ needs.version.outputs.docker_tag }}
+          TAGS: ${{ needs.version.outputs.tags }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
         run: |
           set -eu
           API="$GITEA_URL/api/v1/repos/$GITHUB_REPOSITORY/releases"
@@ -236,8 +246,10 @@ jobs:
           if curl -fsS -o /dev/null -H "Authorization: token $GITEA_TOKEN" "$API/tags/$TAG"; then
             echo "release $TAG already exists"; exit 0
           fi
-          body="$(printf 'INBUXA webmail %s.\n\nImage: `%s:%s` (linux/amd64, linux/arm64), also tagged `latest`.' "$VERSION" "$IMAGE" "$DOCKER_TAG")"
-          jq -n --arg tag "$TAG" --arg body "$body" '{tag_name:$tag, name:$tag, body:$body}' \
+          also="$(for t in $TAGS; do [ "$t" = "$VERSION" ] || printf '`%s` ' "$t"; done)"
+          body="$(printf 'INBUXA webmail %s.\n\nImage: `%s:%s` (linux/amd64, linux/arm64), also tagged %s.' "$VERSION" "$IMAGE" "$VERSION" "${also% }")"
+          jq -n --arg tag "$TAG" --arg body "$body" --argjson pre "$PRERELEASE" \
+             '{tag_name:$tag, name:$tag, body:$body, prerelease:$pre}' \
           | curl -fsS -o /dev/null -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json" \
                  --data @- "$API"
           echo "release $TAG created"
@@ -253,7 +265,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.version.outputs.version }}
-      DOCKER_TAG: ${{ needs.version.outputs.docker_tag }}
       TAG: ${{ github.ref_name }}
       GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
     steps:
@@ -267,8 +278,8 @@ jobs:
           set -euo pipefail
           mkdir -p out
           for arch in amd64 arm64; do
-            docker pull -q --platform "linux/$arch" "$IMAGE:$DOCKER_TAG"
-            id="$(docker create --platform "linux/$arch" "$IMAGE:$DOCKER_TAG")"
+            docker pull -q --platform "linux/$arch" "$IMAGE:$VERSION"
+            id="$(docker create --platform "linux/$arch" "$IMAGE:$VERSION")"
             rm -rf app && docker cp "$id:/app" app
             docker rm -f "$id" >/dev/null
             printf '%s\n' "$VERSION" > app/VERSION
@@ -295,7 +306,7 @@ jobs:
 
   # ------------------------------------------------------ ghcr replica ------
   # Copies the release image from the Gitea registry, which stays the
-  # authoritative one, to ghcr.io under the same version tag and :latest. It is
+  # authoritative one, to ghcr.io under the same tags. It is
   # a copy, not a second build: the digest on GHCR is the digest on the
   # registry, so `docker pull ghcr.io/...` gets exactly the same image. Left
   # out of the report to Gitea, like the release copy, so a GHCR problem
@@ -310,14 +321,16 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.version.outputs.docker_tag }}
+          TAG: ${{ needs.version.outputs.version }}
+          TAGS: ${{ needs.version.outputs.tags }}
         run: |
           set -euo pipefail
           src="${{ vars.REGISTRY }}/${GITHUB_REPOSITORY,,}"
           dst="ghcr.io/${GITHUB_REPOSITORY,,}"
           tag="$TAG"
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker buildx imagetools create -t "$dst:$tag" -t "$dst:latest" "$src:$tag"
+          tags=(); for t in $TAGS; do tags+=(-t "$dst:$t"); done
+          docker buildx imagetools create "${tags[@]}" "$src:$tag"
           want="$(docker buildx imagetools inspect "$src:$tag" --format '{{json .Manifest.Digest}}')"
           got="$(docker buildx imagetools inspect "$dst:$tag" --format '{{json .Manifest.Digest}}')"
           echo "registry $src:$tag = $want"

@@ -3,11 +3,12 @@
 # shared runners hit Docker Hub's anonymous pull limit (429), which the
 # mirror is not subject to. Same images, same digests (checked 2026-10-09).
 FROM mirror.gcr.io/library/node:26-alpine AS build
-# What this build calls itself: 2.16.<PR>, worked out by whoever runs the
-# build. It cannot be worked out in here -- .dockerignore keeps .git out of the
-# context on purpose, and git is not installed either. `node scripts/version.mjs`
-# in a checkout prints the right answer; ihasmail-deploy.sh passes it through.
-# Left empty, the build falls back to the base version from package.json.
+# What this build calls itself: 27.1-rc.1, or 27.1-rc.1+pr129 between
+# releases, worked out by whoever runs the build. It cannot be worked out in
+# here -- .dockerignore keeps .git out of the context on purpose, and git is not
+# installed either. `node scripts/version.mjs` in a checkout prints the right
+# answer; deploy.example.sh and CI pass it through. Left empty, the build
+# reports 0.0.0, which is meant to look wrong.
 ARG IHASMAIL_VERSION=""
 ENV IHASMAIL_VERSION=$IHASMAIL_VERSION
 # The subpath the app will be served from, e.g. /mail. Empty -- the default --
