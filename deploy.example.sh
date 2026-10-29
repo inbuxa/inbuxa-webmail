@@ -254,8 +254,12 @@ VERSION="${IHASMAIL_VERSION:-$(version_from_git)}"
 # correctly.
 TAG="${VERSION//+/-}"
 echo "==> building $(git log --oneline -1) as v$VERSION"
+# The commit, for /.well-known/source; none for a tree with uncommitted changes.
+REVISION=""
+[ -z "$(git status --porcelain --untracked-files=no)" ] && REVISION="$(git rev-parse HEAD)"
 docker build \
   --build-arg IHASMAIL_VERSION="$VERSION" \
+  --build-arg INBUXA_REVISION="$REVISION" \
   -t "$IMAGE_REPO:$TAG" \
   -t "$IMAGE_REPO:current" \
   .

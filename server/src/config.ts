@@ -1,4 +1,4 @@
-import { resolveVersion } from "../../scripts/version.mjs";
+import { resolveRevision, resolveVersion } from "../../scripts/version.mjs";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -296,6 +296,13 @@ export const config = {
    * such a tree, so the default is INBUXA's fork.
    */
   sourceUrl: env("SOURCE_URL", "https://git.coffeylabs.org/inbuxa/inbuxa-webmail"),
+  /**
+   * ihasmail-inbuxa: the commit this build was made from, named beside
+   * `sourceUrl` in `/.well-known/source`. Set by the image build from
+   * `--build-arg INBUXA_REVISION`; a clean checkout asks git. Null when
+   * neither can say, and then there is no source document. See source.ts.
+   */
+  revision: resolveRevision(),
   /**
    * ihasmail-inbuxa: this webmail's own name, shown in Settings > About next
    * to the mail node it talks to. Set per host by the deploy; empty means the

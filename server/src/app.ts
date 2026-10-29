@@ -9,6 +9,7 @@ import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { attach as pushAttach, attachRelay as pushAttachRelay, prepare as pushPrepare, receive as pushReceive, pushStatus } from "./push.js";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { config } from "./config.js";
+import { sourceDocument } from "./source.js";
 import { fetchPermissions } from "./permissionSchema.js";
 import { administrationAllowed, gateAdministration, grantsAdministration } from "./adminGate.js";
 import { SessionStore, accountKey, type SessionBackend, type LiveSession } from "./sessions.js";
@@ -1368,6 +1369,17 @@ api.get("/ics", requireSession, apiRateLimited, icsProxyHandler);
   });
 
   app.route(`${basePath}/api`, api);
+
+  // ihasmail-inbuxa: where this build's source is. At the host's root whatever
+  // the base path, since that's where the well-known address is; see source.ts.
+  app.on(["GET", "HEAD"], "/.well-known/source", (c) => {
+    const doc = sourceDocument({ version: config.version, repository: config.sourceUrl, revision: config.revision });
+    if (!doc) return c.json({ error: "not_found" }, 404);
+    c.header("Content-Type", "application/json");
+    c.header("Cache-Control", "no-cache");
+    c.header("Access-Control-Allow-Origin", "*");
+    return c.body(doc);
+  });
 
   // ---------- Static SPA ----------
   app.get("*", staticHandler(config.staticDir, basePath));

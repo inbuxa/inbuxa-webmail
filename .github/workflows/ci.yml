@@ -168,7 +168,9 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          build-args: IHASMAIL_VERSION=${{ needs.version.outputs.version }}
+          build-args: |
+            IHASMAIL_VERSION=${{ needs.version.outputs.version }}
+            INBUXA_REVISION=${{ github.sha }}
           # Attestations add manifests of their own to the index, and
           # `imagetools create` below expects the two entries pushed here.
           provenance: false

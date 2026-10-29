@@ -33,12 +33,16 @@ FROM mirror.gcr.io/library/node:26-alpine AS runtime
 # Re-declared: an ARG does not cross stages.
 ARG IHASMAIL_VERSION=""
 ARG BASE_PATH=""
+# The commit being built, for /.well-known/source; passed like the version,
+# for the same reason. Left empty, there is no source document.
+ARG INBUXA_REVISION=""
 ENV NODE_ENV=production \
     HOST=:: \
     PORT=8080 \
     STATIC_DIR=/app/web/dist \
     SESSION_FILE=/data/sessions.json \
     IHASMAIL_VERSION=$IHASMAIL_VERSION \
+    INBUXA_REVISION=$INBUXA_REVISION \
     BASE_PATH=$BASE_PATH
 WORKDIR /app
 COPY package.json package-lock.json* ./
