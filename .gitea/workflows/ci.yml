@@ -175,6 +175,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --build-arg IHASMAIL_VERSION="$VERSION" \
+            --build-arg INBUXA_REVISION="${{ github.sha }}" \
             --provenance=false --sbom=false \
             $(for t in $TAGS; do printf '%s %s:%s ' --tag "$IMAGE" "$t"; done) \
             --push .

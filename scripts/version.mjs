@@ -102,6 +102,27 @@ export function versionFromGit(release) {
   return formatVersion({ release, tagged: tags.includes(`inbuxa-v${release}`), subject, sha: head });
 }
 
+/** A full commit id: 40 hex digits (SHA-1) or 64 (SHA-256). */
+const COMMIT = /^([0-9a-f]{40}|[0-9a-f]{64})$/i;
+
+/**
+ * The commit this build was made from, for `/.well-known/source`: what the
+ * environment was told (INBUXA_REVISION, passed like IHASMAIL_VERSION), else
+ * git's HEAD in a checkout with nothing uncommitted. Null otherwise: a commit
+ * with local changes on top doesn't name what runs.
+ */
+export function resolveRevision() {
+  const fromEnv = process.env.INBUXA_REVISION?.trim();
+  if (fromEnv) return COMMIT.test(fromEnv) ? fromEnv : null;
+  try {
+    if (git("status", "--porcelain", "--untracked-files=no")) return null;
+    const head = git("rev-parse", "HEAD");
+    return COMMIT.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Whatever the environment was told, else git, else an answer that looks wrong. */
 export function resolveVersion() {
   const fromEnv = process.env.IHASMAIL_VERSION?.trim();
