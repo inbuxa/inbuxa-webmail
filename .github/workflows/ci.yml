@@ -346,9 +346,12 @@ jobs:
   # release is the real one; this is left out of the report to Gitea, so a
   # failure here cannot fail a release. PR and issue numbers in the notes are
   # rewritten to Gitea links: on GitHub a bare #16 is some other PR.
+  # It waits for `files` too: started after `publish` alone, it ran beside
+  # `files` and copied the Gitea release before its files were attached, so
+  # every GitHub copy had none.
   github-release:
     if: ${{ vars.BUILD_ON == 'github' && github.ref_type == 'tag' }}
-    needs: [publish]
+    needs: [publish, files]
     runs-on: ubuntu-latest
     permissions:
       contents: write
