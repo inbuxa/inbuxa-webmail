@@ -536,10 +536,16 @@ function EventForm({ init, base, scope, editing, onClose, settingsTz, defaultAle
                       <div className="hint">
                         {known.length === 0
                           ? translate("Nobody here has free/busy on this server, so none of these rows can say whether anyone is free.")
-                          : plural(unknown.length, {
-                              one: "{n} guest is not on this server, so there is no free/busy to read for them.",
-                              other: "{n} guests are not on this server, so there is no free/busy to read for them.",
-                            })}
+                          : contacts.directoryPrivate
+                            /* We can't tell who is on this server, so don't say they aren't. */
+                            ? plural(unknown.length, {
+                                one: "No free/busy for {n} guest, because this server keeps its directory private.",
+                                other: "No free/busy for {n} guests, because this server keeps its directory private.",
+                              })
+                            : plural(unknown.length, {
+                                one: "{n} guest is not on this server, so there is no free/busy to read for them.",
+                                other: "{n} guests are not on this server, so there is no free/busy to read for them.",
+                              })}
                       </div>
                     )}
                   </div>

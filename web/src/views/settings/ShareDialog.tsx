@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Dialog } from "@/ui/dialog";
 import { useContacts } from "@/store/contacts";
+import { useSession } from "@/store/session";
 import { useMail } from "@/store/mail";
 import { useCalendar } from "@/store/calendar";
 import { useFiles } from "@/store/files";
-import { client, setErrorMessage } from "@/jmap/client";
+import { CAP, client, setErrorMessage } from "@/jmap/client";
 import { toast } from "@/ui/toast";
 import type { Id, Principal } from "@/jmap/types";
 import { t } from "@/lib/i18n";
@@ -64,7 +65,9 @@ const PRESETS: Record<Kind, { reader: string[]; editor: string[] }> = {
 /** Share a mailbox / calendar / address book / file node with other principals (JMAP Sharing, RFC 9670). */
 export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind; id: Id; name: string; shareWith: Record<Id, object> | null; onClose: () => void }) {
   const principals = useContacts((s) => s.principals);
+  const directoryPrivate = useContacts((s) => s.directoryPrivate);
   const loadPrincipals = useContacts((s) => s.loadPrincipals);
+  const selfId = useSession((s) => s.accountFor(CAP.principals));
   const [rights, setRights] = useState<Record<Id, Record<string, boolean>>>(() => ({ ...((shareWith ?? {}) as Record<Id, Record<string, boolean>>) }));
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,7 +75,9 @@ export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind
     void loadPrincipals();
   }, [loadPrincipals]);
 
-  const available = principals.filter((p) => !rights[p.id]);
+  /* A private directory lists the reader too, and sharing with yourself is not "someone to add". */
+  const available = principals.filter((p) => !rights[p.id] && !(directoryPrivate && p.id === selfId));
+  const canPick = directoryPrivate ? available.length > 0 : principals.length > 0;
   const add = (p: Principal, preset: "reader" | "editor") => {
     const r: Record<string, boolean> = {};
     for (const k of PRESETS[kind][preset]) r[k] = true;
@@ -110,13 +115,13 @@ export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind
           with directory queries switched off -- which is the default, and which
           returns no principals -- showed nothing but the hint, and an existing
           share could not be seen, let alone removed. */}
-      {!principals.length && (
+      {!canPick && (
         <p className="hint" style={{ marginBottom: 12 }}>
           
           {t("No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.")}
         </p>
       )}
-      {principals.length > 0 && (
+      {canPick && (
         <>
           <div className="row" style={{ marginBottom: 12 }}>
             <select className="select" value={pick} onChange={(e) => setPick(e.target.value)}>

@@ -1828,6 +1828,7 @@ export const catalog: Catalog = {
     "Move {n} items": { one: "{n} item verplaatsen", other: "{n} items verplaatsen" },
     "Move {n} items…": { one: "{n} item verplaatsen…", other: "{n} items verplaatsen…" },
     "The event runs {n} days longer than this shows.": { one: "De gebeurtenis duurt {n} dag langer dan hier wordt getoond.", other: "De gebeurtenis duurt {n} dagen langer dan hier wordt getoond." },
+    "No free/busy for {n} guests, because this server keeps its directory private.": { one: "Geen vrij/bezet voor {n} gast, omdat deze server zijn adreslijst privé houdt.", other: "Geen vrij/bezet voor {n} gasten, omdat deze server zijn adreslijst privé houdt." },
     "{n} guests are not on this server, so there is no free/busy to read for them.": { one: "{n} gast zit niet op deze server, dus er is geen vrij/bezet voor die persoon te lezen.", other: "{n} gasten zitten niet op deze server, dus er is geen vrij/bezet voor hen te lezen." },
     "{n} items selected": { one: "{n} item geselecteerd", other: "{n} items geselecteerd" },
     // ── Third pass ─────────────────────────────────────────────────────
