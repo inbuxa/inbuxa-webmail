@@ -1855,6 +1855,7 @@ export const catalog: Catalog = {
     "Move {n} items": { one: "{n} Element verschieben", other: "{n} Elemente verschieben" },
     "Move {n} items…": { one: "{n} Element verschieben…", other: "{n} Elemente verschieben…" },
     "The event runs {n} days longer than this shows.": { one: "Der Termin dauert {n} Tag länger, als hier angezeigt wird.", other: "Der Termin dauert {n} Tage länger, als hier angezeigt wird." },
+    "No free/busy for {n} guests, because this server keeps its directory private.": { one: "Keine Frei/Gebucht-Informationen für {n} Gast, weil dieser Server sein Verzeichnis nicht freigibt.", other: "Keine Frei/Gebucht-Informationen für {n} Gäste, weil dieser Server sein Verzeichnis nicht freigibt." },
     "{n} guests are not on this server, so there is no free/busy to read for them.": { one: "{n} Gast ist nicht auf diesem Server, daher gibt es dafür keine Frei/Gebucht-Informationen.", other: "{n} Gäste sind nicht auf diesem Server, daher gibt es dafür keine Frei/Gebucht-Informationen." },
     "{n} items selected": { one: "{n} Element ausgewählt", other: "{n} Elemente ausgewählt" },
     // ── Third pass ─────────────────────────────────────────────────────

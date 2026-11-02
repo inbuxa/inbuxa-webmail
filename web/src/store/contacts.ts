@@ -182,6 +182,8 @@ interface ContactsState {
   error: string | null;
   principals: Principal[];
   principalsLoaded: boolean;
+  /** The server keeps its directory private, so `principals` is only who the reader already has to do with. */
+  directoryPrivate: boolean;
   recent: EmailAddress[];
   /** Address books shared with the reader, from every non-personal account. */
   sharedBooks: SharedBook[];
@@ -264,6 +266,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   error: null,
   principals: [],
   principalsLoaded: false,
+  directoryPrivate: false,
   recent: [],
   sharedBooks: [],
   sharedCards: {},
@@ -793,15 +796,31 @@ export const useContacts = create<ContactsState>((set, get) => ({
       set({ principalsLoaded: true });
       return;
     }
+    const properties = ["id", "type", "name", "description", "email", "timeZone"];
     try {
       const res = await client.chain([
         ["Principal/query", { accountId, limit: 1000 }, "q"],
-        ["Principal/get", { accountId, "#ids": { resultOf: "q", name: "Principal/query", path: "/ids" }, properties: ["id", "type", "name", "description", "email", "timeZone"] }, "g"],
+        ["Principal/get", { accountId, "#ids": { resultOf: "q", name: "Principal/query", path: "/ids" }, properties }, "g"],
       ]);
       const g = res.get("g")?.[0] as unknown as GetResponse<Principal>;
       set({ principals: g.list, principalsLoaded: true });
-    } catch {
-      set({ principalsLoaded: true });
+    } catch (err) {
+      if (!(err instanceof JmapMethodError) || err.type !== "forbidden") {
+        set({ principalsLoaded: true });
+        return;
+      }
+      /*
+       * The administrator has turned directory queries off. Principal/get still
+       * answers for the accounts the reader already has to do with, which is
+       * what puts a name on a share and finds a colleague's free/busy.
+       */
+      set({ directoryPrivate: true });
+      try {
+        const g = await client.call<GetResponse<Principal>>("Principal/get", { accountId, ids: null, properties });
+        set({ principals: g.list, principalsLoaded: true });
+      } catch {
+        set({ principalsLoaded: true });
+      }
     }
   },
 
@@ -908,7 +927,7 @@ useSession.subscribe((s) => {
     }
     useContacts.setState({ recent });
   } else {
-    useContacts.setState({ accountId: null, books: {}, cards: {}, loaded: false, principals: [], principalsLoaded: false });
+    useContacts.setState({ accountId: null, books: {}, cards: {}, loaded: false, principals: [], principalsLoaded: false, directoryPrivate: false });
   }
 });
 

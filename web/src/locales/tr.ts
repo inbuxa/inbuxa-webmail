@@ -1862,6 +1862,7 @@ export const catalog: Catalog = {
 			one: "{n} grup",
 			other: "{n} grup",
 		},
+		"No free/busy for {n} guests, because this server keeps its directory private.": { one: "Bu sunucu dizinini gizli tuttuğu için {n} konuğun uygunluk durumu okunamıyor.", other: "Bu sunucu dizinini gizli tuttuğu için {n} konuğun uygunluk durumu okunamıyor." },
 		"{n} guests are not on this server, so there is no free/busy to read for them.": {
 			one: "{n} konuk bu sunucuda değil, bu nedenle onun için uygunluk durumu okunamıyor.",
 			other: "{n} konuk bu sunucuda değil, bu nedenle onlar için uygunluk durumu okunamıyor.",

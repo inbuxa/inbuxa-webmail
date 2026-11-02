@@ -1836,6 +1836,7 @@ export const catalog: Catalog = {
     "Move {n} items": { other: "{n} 件を移動" },
     "Move {n} items…": { other: "{n} 件を移動…" },
     "The event runs {n} days longer than this shows.": { other: "この予定は表示よりも {n} 日長く続きます。" },
+    "No free/busy for {n} guests, because this server keeps its directory private.": { other: "このサーバーはディレクトリを非公開にしているため、{n} 名の参加者の空き情報を取得できません。" },
     "{n} guests are not on this server, so there is no free/busy to read for them.": { other: "{n} 名の参加者はこのサーバーにいないため、空き情報を取得できません。" },
     "{n} items selected": { other: "{n} 件を選択中" },
     // ── Third pass ─────────────────────────────────────────────────────
