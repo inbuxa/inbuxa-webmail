@@ -1183,6 +1183,13 @@ export const catalog: Catalog = {
     "Saved {when}": "Guardado {when}",
     "Unsaved": "Sin guardar",
     "Agenda from {date}": "Agenda desde {date}",
+    "Search events": "Buscar eventos",
+    "Results for “{query}”": "Resultados para “{query}”",
+    "No matching events": "No hay eventos que coincidan",
+    "Nothing in your calendars matches “{query}”.": "Nada en sus calendarios coincide con “{query}”.",
+    "Upcoming": "Próximos",
+    "Past": "Pasados",
+    "(untitled)": "(sin título)",
 
     // ── Toasts, dialogs and computed labels (second extraction pass) ───
     "(no subject)": "(sin asunto)",
