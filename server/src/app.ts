@@ -540,6 +540,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * `callback` is where the server sends it back. See oauth.ts.
    */
   const OAUTH_STATE_COOKIE = `${config.cookieName}_signin`;
+  /** The look the browser asked the server's sign-in page for, if it is one we pass on. */
+  const signInTheme = (value: string | undefined): "light" | "dark" | undefined =>
+    value === "light" || value === "dark" ? value : undefined;
 
   api.get("/auth/oauth/start", async (c) => {
     if (!oauthEnabled()) return c.json({ error: "not_found" }, 404);
@@ -561,6 +564,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         base: upstreamFor(username),
         remember: c.req.query("remember") === "1",
         adding: front !== null,
+        theme: signInTheme(c.req.query("theme")),
       });
       setCookie(c, OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: "Lax", secure: isSecureRequest(c), path: `${basePath}/api/auth`, maxAge: 600 });
       return c.redirect(location, 302);

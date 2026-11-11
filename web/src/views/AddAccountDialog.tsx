@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Dialog } from "@/ui/dialog";
 import { apiFetch } from "@/jmap/client";
 import { withBase } from "@/lib/basePath";
+import { signInTheme } from "@/lib/signInTheme";
 import { clearSignedInData, isDeviceTrusted } from "@/lib/storage";
 import { t } from "@/lib/i18n";
 
@@ -50,7 +51,7 @@ export function AddAccountDialog({ open, onClose }: { open: boolean; onClose: ()
     setBusy(true);
     // What is cached belongs to the account in front, which won't be
     clearSignedInData();
-    const params = new URLSearchParams({ add: "1", ...(address ? { username: address } : {}), ...(remember ? { remember: "1" } : {}) });
+    const params = new URLSearchParams({ add: "1", ...(address ? { username: address } : {}), ...(remember ? { remember: "1" } : {}), theme: signInTheme() });
     window.location.assign(withBase(`/api/auth/oauth/start?${params}`));
   }
 

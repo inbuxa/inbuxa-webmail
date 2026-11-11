@@ -3,6 +3,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useSession } from "@/store/session";
 import { ApiError } from "@/jmap/client";
 import { withBase } from "@/lib/basePath";
+import { signInTheme } from "@/lib/signInTheme";
 import { APP_VERSION } from "@/lib/version";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { DEFAULT_APP_NAME, brandImage } from "@/lib/brand";
@@ -64,7 +65,7 @@ export function LoginPage() {
       if (!direct && !username.trim()) return;
       setBusy(true);
       if (trustDevice && !direct) localStorage.setItem("ihasmail:lastUser", username.trim());
-      const params = new URLSearchParams({ ...(direct ? {} : { username: username.trim() }), ...(trustDevice ? { remember: "1" } : {}) });
+      const params = new URLSearchParams({ ...(direct ? {} : { username: username.trim() }), ...(trustDevice ? { remember: "1" } : {}), theme: signInTheme() });
       window.location.assign(withBase(`/api/auth/oauth/start?${params}`));
       return;
     }
