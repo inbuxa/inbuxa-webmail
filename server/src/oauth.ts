@@ -116,7 +116,7 @@ function challengeOf(verifier: string): string {
  * Begin a sign-in. Returns where to send the browser, and the state to bind
  * to it in a cookie.
  */
-export async function start(params: { username: string; base: string; remember: boolean; adding?: boolean }): Promise<{ location: string; state: string }> {
+export async function start(params: { username: string; base: string; remember: boolean; adding?: boolean; theme?: "light" | "dark" }): Promise<{ location: string; state: string }> {
   const metadata = await metadataFor(params.base);
   sweepPending();
   if (pending.size >= MAX_PENDING) throw new UpstreamError("Too many sign-ins in progress", 503);
@@ -136,6 +136,9 @@ export async function start(params: { username: string; base: string; remember: 
   // MA-B: ask again, rather than let the server's page reuse the sign-in of
   // the account already in front
   if (params.adding) url.searchParams.set("prompt", "login");
+  // inbuxa-server #375: the server's page shows the light or dark look the
+  // reader has here; a server that doesn't know the parameter ignores it
+  if (params.theme) url.searchParams.set("theme", params.theme);
   return { location: url.toString(), state };
 }
 

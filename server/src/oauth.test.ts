@@ -119,6 +119,15 @@ test("start sends the browser to the server's page with PKCE and a bound state",
   assert.equal(jar.get("ihm_session_signin"), to.searchParams.get("state"), "the state is bound to this browser");
 });
 
+test("start passes on the light or dark look for the server's page, and nothing else", async () => {
+  const look = async (theme: string) =>
+    new URL((await call(`/api/auth/oauth/start?username=demo@example.com&theme=${encodeURIComponent(theme)}`)).headers.get("location")!).searchParams.get("theme");
+  assert.equal(await look("dark"), "dark");
+  assert.equal(await look("light"), "light");
+  assert.equal(await look("<script>"), null);
+  assert.equal(await look(""), null);
+});
+
 test("a full sign-in holds tokens, and the session works", async () => {
   await signIn();
   const res = await call("/api/auth/session");
