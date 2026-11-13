@@ -503,6 +503,8 @@ export const catalog: Catalog = {
     "Normal": "標準",
     "Low": "低",
     "to {recipients}": "宛先: {recipients}",
+    // The recipient summary's word for the reader, as in "to me".
+    "me": "自分",
     "From: {sender}": "差出人: {sender}",
     "Waiting on the server — goes out {when}.": "サーバーで待機中です。{when} に送信されます。",
     "Scheduled — click to clear the schedule": "予約済み — クリックすると予約を解除します",

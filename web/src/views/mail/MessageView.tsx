@@ -28,7 +28,7 @@ const FilterFromMessageDialog = lazy(() => import("./FilterFromMessage").then((m
 const FilePreviewDialog = lazy(() => import("@/ui/filepreview").then((m) => ({ default: m.FilePreviewDialog })));
 import { findQuoteStart, htmlToText, textToHtml, withoutBidiControls } from "@/lib/text/text";
 import { canShare, canShareFiles, shareFile, shareText } from "@/lib/share";
-import { Avatar } from "@/ui/misc";
+import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Dialog, choiceDialog} from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -113,6 +113,10 @@ export const MessageView = memo(function MessageView({ email: e, expanded, wasUn
 
   const reply = useCompose((s) => s.reply);
   const cardRef = useRef<HTMLElement>(null);
+  /* The full date takes about half a phone's width, and the sender loses it
+     (#89). The short one is what a collapsed message shows; the full one is
+     still the title and in the details. */
+  const isMobile = useIsMobile();
   const [details, setDetails] = useState(false);
   const [showSource, setShowSource] = useState(false);
   const [showHeaders, setShowHeaders] = useState(false);
@@ -330,7 +334,7 @@ export const MessageView = memo(function MessageView({ email: e, expanded, wasUn
         </div>
         <div className="meta">
           {e.hasAttachment && !expanded && <Paperclip size={14} />}
-          <span className="date" title={formatFullDate(e.receivedAt)}>{expanded ? formatFullDate(e.receivedAt) : formatListDate(e.receivedAt)}</span>
+          <span className="date" title={formatFullDate(e.receivedAt)}>{expanded && !isMobile ? formatFullDate(e.receivedAt) : formatListDate(e.receivedAt)}</span>
           <button className={`icon-btn sm ${e.keywords.$flagged ? "active" : ""}`} style={e.keywords.$flagged ? { color: "var(--star)", background: "transparent" } : undefined} title={translate("Star")} onClick={(ev) => { ev.stopPropagation(); void actions.star(!e.keywords.$flagged, [e.id]); }}>
             <Star size={17} fill={e.keywords.$flagged ? "currentColor" : "none"} />
           </button>
@@ -520,7 +524,7 @@ function summarizeRecipients(e: Email): string {
   const all = [...(e.to ?? []), ...(e.cc ?? [])];
   if (!all.length) return "(undisclosed recipients)";
   const me = useMail.getState().identities.map((i) => i.email.toLowerCase());
-  const names = all.map((a) => (me.includes(a.email.toLowerCase()) ? "me" : displayName(a).split(" ")[0] || a.email));
+  const names = all.map((a) => (me.includes(a.email.toLowerCase()) ? translate("me") : displayName(a).split(" ")[0] || a.email));
   if (names.length <= 3) return names.join(", ");
   return `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
 }

@@ -1548,6 +1548,8 @@ export const catalog: Catalog = {
 		"this view": "bu görünüm",
 		"to": "kime",
 		"to {recipients}": "alıcı: {recipients}",
+		// The recipient summary's word for the reader, as in "to me".
+		"me": "ben",
 		"users": "kullanıcılar",
 		"vCard": "vCard",
 		"vCard attachment": "vCard eki",

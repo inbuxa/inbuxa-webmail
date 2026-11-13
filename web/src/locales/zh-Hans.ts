@@ -502,6 +502,8 @@ export const catalog: Catalog = {
     "Normal": "普通",
     "Low": "低",
     "to {recipients}": "收件人：{recipients}",
+    // The recipient summary's word for the reader, as in "to me".
+    "me": "我",
     "From: {sender}": "发件人：{sender}",
     "Waiting on the server — goes out {when}.": "正在服务器上等待，将于 {when} 发出。",
     "Scheduled — click to clear the schedule": "已定时，点击可取消定时",

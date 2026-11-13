@@ -1582,7 +1582,13 @@ a.menu-item:hover { color: var(--fg); }
 .message-head .who { flex: 1; min-width: 0; }
 .message-head .who .from { font-weight: 650; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .message-head .who .from .email { color: var(--fg-muted); font-weight: 400; font-size: .9em; }
-.message-head .who .to { color: var(--fg-muted); font-size: .88em; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+/* A long name breaks inside the column rather than running out of it, under
+   the date beside it (#89). The address keeps to one line and shortens: it's
+   whole in the details, and broken it leaves a ">" on a line of its own. */
+.message-head .who .from .addr { min-width: 0; overflow-wrap: anywhere; }
+.message-head .who .from .email { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.message-head .who .to { color: var(--fg-muted); font-size: .88em; display: flex; align-items: center; gap: 4px; }
+.message-head .who .to .truncate { min-width: 0; }
 .message-head .who .to button { color: var(--fg-muted); display: inline-flex; align-items: center; }
 .message-head .who .snippet { color: var(--fg-muted); font-size: .92em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .message-head .meta { display: flex; align-items: center; gap: 2px; color: var(--fg-muted); font-size: .85em; white-space: nowrap; flex: 0 0 auto; }
@@ -2270,6 +2276,8 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .thread-subject { padding: 14px 16px 8px; }
   .message { margin: 0 8px 8px; }
   .message-head { padding: 10px 12px; }
+  /* Reply is under the thread and in the ⋮ menu; here it only took the sender's room. */
+  .message-head .meta .hide-mobile { display: none; }
   .message-body { padding: 4px 12px 12px; }
   .thread-toolbar .hide-mobile { display: none; }
   .list-toolbar .hide-mobile { display: none; }
