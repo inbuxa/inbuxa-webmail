@@ -506,6 +506,8 @@ export const catalog: Catalog = {
     "Normal": "Обычный",
     "Low": "Низкий",
     "to {recipients}": "кому: {recipients}",
+    // The recipient summary's word for the reader, as in "to me".
+    "me": "мне",
     "From: {sender}": "От: {sender}",
     "Waiting on the server — goes out {when}.": "Ожидает на сервере — будет отправлено {when}.",
     "Scheduled — click to clear the schedule": "Отложено — нажмите, чтобы отменить",

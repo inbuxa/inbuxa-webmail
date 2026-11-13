@@ -503,6 +503,8 @@ export const catalog: Catalog = {
     "Normal": "Normaal",
     "Low": "Laag",
     "to {recipients}": "aan {recipients}",
+    // The recipient summary's word for the reader, as in "to me".
+    "me": "mij",
     "From: {sender}": "Van: {sender}",
     "Waiting on the server — goes out {when}.": "Wacht op de server — wordt {when} verzonden.",
     "Scheduled — click to clear the schedule": "Gepland — klik om de planning te wissen",

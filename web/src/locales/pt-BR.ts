@@ -507,6 +507,8 @@ export const catalog: Catalog = {
     "Normal": "Normal",
     "Low": "Baixa",
     "to {recipients}": "para {recipients}",
+    // The recipient summary's word for the reader, as in "to me".
+    "me": "mim",
     "From: {sender}": "De: {sender}",
     "Waiting on the server — goes out {when}.": "Aguardando no servidor — será enviada {when}.",
     "Scheduled — click to clear the schedule": "Programada — clique para cancelar a programação",
