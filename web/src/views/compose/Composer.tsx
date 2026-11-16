@@ -24,6 +24,18 @@ import { scheduleSupported, scheduleWindowMs } from "@/store/scheduled";
 import { formatScheduleTime } from "@/lib/schedule";
 import { t as translate } from "@/lib/i18n";
 
+/**
+ * The files a drop on the composer adds as attachments. A drop on the editor
+ * has already been taken care of there (images inline, anything else through
+ * its onFiles), and the editor says so by preventing the default; the same
+ * event then bubbles up here, and adding its files again attached each one
+ * twice (#95).
+ */
+export function droppedAttachments(e: Pick<React.DragEvent, "isDefaultPrevented" | "dataTransfer">): File[] {
+  if (e.isDefaultPrevented()) return [];
+  return Array.from(e.dataTransfer.files);
+}
+
 export function Composer({ draft }: { draft: Draft }) {
   const update = useCompose((s) => s.update);
   const close = useCompose((s) => s.close);
@@ -184,9 +196,9 @@ export function Composer({ draft }: { draft: Draft }) {
   };
 
   const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
     setDropping(false);
-    const files = Array.from(e.dataTransfer.files);
+    const files = droppedAttachments(e);
+    e.preventDefault();
     if (files.length) addFiles(key, files);
   };
 
