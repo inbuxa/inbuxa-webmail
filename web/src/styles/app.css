@@ -1271,10 +1271,15 @@ a.menu-item:hover { color: var(--fg); }
 .searchbar { flex: 1 1 auto; min-width: 0; max-width: 720px; margin: 0 auto; position: relative; }
 .searchbar .search-input { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 8px 0 14px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid transparent; transition: background .12s, box-shadow .12s, border-color .12s; }
 .searchbar .search-input:focus-within { background: var(--bg-elev); box-shadow: var(--shadow-1); border-color: var(--border); }
-.searchbar input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; height: 100%; }
-.searchbar input::placeholder { color: var(--fg-faint); }
+/* Only the bar's own field: the advanced panel inside the same form has
+   ordinary inputs and checkboxes, which this used to strip of their borders
+   and squeeze to nothing (#94). */
+.searchbar .search-input input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; height: 100%; }
+.searchbar .search-input input::placeholder { color: var(--fg-faint); }
 .search-panel { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 16px; z-index: 60; animation: pop .12s var(--ease); }
 .search-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.search-panel-foot { justify-content: space-between; flex-wrap: wrap; row-gap: 4px; margin-top: 4px; }
+.search-panel-actions { margin-left: auto; }
 .search-suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 6px; z-index: 60; }
 .topbar-actions { display: flex; align-items: center; gap: 4px; }
 /* Live-updates indicator. Three states, and a raised bead rather than a flat
@@ -2247,6 +2252,15 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .topbar { padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); gap: 4px; }
   .topbar .brand .brand-name { display: none; }
   .searchbar .search-input { height: 40px; }
+  /*
+    On a phone the search field is only what's left between the menu, logo
+    and account buttons, too narrow to hang the advanced panel from. The panel
+    takes the width of the top bar instead (the nearest positioned box once
+    the bar isn't), in one column, and scrolls if the keyboard leaves it short.
+  */
+  .searchbar { position: static; }
+  .search-panel { left: 8px; right: 8px; max-height: calc(100dvh - var(--topbar-h) - 16px); overflow-y: auto; }
+  .search-panel .grid { grid-template-columns: minmax(0, 1fr); }
   .topbar-actions .hide-mobile { display: none; }
   .msg-row { padding-right: 8px; }
   .mail-list { padding-bottom: 72px; }

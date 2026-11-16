@@ -20,6 +20,7 @@ export function SearchBar() {
   const [q, setQ] = useState("");
   const [adv, setAdv] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const mailboxes = useMail((s) => s.mailboxes);
   const [advFields, setAdvFields] = useState({ from: "", to: "", subject: "", words: "", hasAttachment: false, unread: false, folder: "", after: "", before: "" });
 
@@ -30,6 +31,34 @@ export function SearchBar() {
       setQ(params.get("q") ?? "");
     } else setQ("");
   }, [location, search, resultsPath]);
+
+  // The bar stays on screen from page to page, so the panel would too.
+  useEffect(() => setAdv(false), [location]);
+
+  /*
+   * The panel closes on a tap or click outside it and on Escape, as a menu
+   * does. A date picker opened from it lives in a portal elsewhere in the
+   * page, so a tap there counts as inside; it handles its own Escape first.
+   */
+  useEffect(() => {
+    if (!adv) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Element | null;
+      if (formRef.current?.contains(target) || target?.closest?.(".popover")) return;
+      setAdv(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAdv(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [adv]);
 
   useEffect(() => keyboard.pushScope("search", [{ keys: "/", description: "Search mail", group: "Navigation", handler: () => inputRef.current?.focus() }]), []);
 
@@ -61,7 +90,7 @@ export function SearchBar() {
   };
 
   return (
-    <form className="searchbar" role="search" onSubmit={submit}>
+    <form ref={formRef} className="searchbar" role="search" onSubmit={submit}>
       <div className="search-input">
         <Search size={18} className="muted" />
         <input ref={inputRef} type="search" placeholder={events ? t("Search events") : t("Search mail  (from:, to:, subject:, has:attachment, is:unread, in:, before:, after:)")} value={q} onChange={(e) => setQ(e.target.value)} aria-label={events ? t("Search events") : t("Search mail")} enterKeyHint="search" />
@@ -93,12 +122,12 @@ export function SearchBar() {
               <div className="row"><DateField aria-label={t("After")} value={advFields.after} onChange={(v) => setAdvFields({ ...advFields, after: v })} /><span className="muted">{t("to")}</span><DateField aria-label={t("Before")} value={advFields.before} onChange={(v) => setAdvFields({ ...advFields, before: v })} /></div>
             </div>
           </div>
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 4 }}>
+          <div className="row search-panel-foot">
             <div className="row gap-16">
               <label className="check"><input type="checkbox" checked={advFields.hasAttachment} onChange={(e) => setAdvFields({ ...advFields, hasAttachment: e.target.checked })} />  {t("Has attachment")}</label>
               <label className="check"><input type="checkbox" checked={advFields.unread} onChange={(e) => setAdvFields({ ...advFields, unread: e.target.checked })} />  {t("Unread only")}</label>
             </div>
-            <div className="row">
+            <div className="row search-panel-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setAdv(false)}>{t("Cancel")}</button>
               <button type="button" className="btn btn-primary" onClick={applyAdvanced}>{t("Search")}</button>
             </div>
