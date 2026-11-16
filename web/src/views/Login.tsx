@@ -66,7 +66,8 @@ export function LoginPage() {
       setBusy(true);
       if (trustDevice && !direct) localStorage.setItem("ihasmail:lastUser", username.trim());
       const params = new URLSearchParams({ ...(direct ? {} : { username: username.trim() }), ...(trustDevice ? { remember: "1" } : {}), theme: signInTheme() });
-      window.location.assign(withBase(`/api/auth/oauth/start?${params}`));
+      // Replace: Back after signing in shouldn't land on this form (#96).
+      window.location.replace(withBase(`/api/auth/oauth/start?${params}`));
       return;
     }
     if (!username || !password) return;

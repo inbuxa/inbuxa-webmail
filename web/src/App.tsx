@@ -1,5 +1,5 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Route, Switch, Redirect, useLocation, Router } from "wouter";
+import { Route, Switch, Redirect, Router } from "wouter";
 import { useSession, useViewingDelegation } from "@/store/session";
 import { notifyOwnWhileAway, ownAccountAway, useMail } from "@/store/mail";
 import { scheduleSupported, useScheduled } from "@/store/scheduled";
@@ -120,7 +120,6 @@ export function App() {
 function AuthedApp() {
   const accountId = useSession((s) => s.accountId);
   const viewing = useSession((s) => s.viewing);
-  const [location] = useLocation();
 
   /*
    * Settings that live with the account rather than the browser.
@@ -366,10 +365,13 @@ function AuthedApp() {
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
           <Route path="/settings/:section?">{(p) => <SettingsView section={p.section} />}</Route>
           <Route path="/admin/:section?/:id?">{(p) => <AdminView section={p.section} id={p.id} />}</Route>
+          {/* Replace, not push: a page that only redirects isn't one to go Back to (#96). */}
           <Route path="/login">
-            <Redirect to="/mail" />
+            <Redirect to="/mail" replace />
           </Route>
-          <Route>{location === "/" ? <Redirect to="/mail" /> : <Redirect to="/mail" />}</Route>
+          <Route>
+            <Redirect to="/mail" replace />
+          </Route>
         </Switch>
       </Suspense>
       <ComposerDock />

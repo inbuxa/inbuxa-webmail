@@ -19,6 +19,7 @@ import { haptic, useTouchRow } from "@/lib/input/touch";
 import { plural, t } from "@/lib/i18n";
 import { mailboxDisplayName } from "@/lib/mailbox/mailboxName";
 import { useSession } from "@/store/session";
+import { useSidewaysReplace } from "@/lib/backStack";
 
 // Loaded when first opened: it is not needed to show mail, and it is not small.
 const ShareDialog = lazy(() => import("../settings/ShareDialog").then((m) => ({ default: m.ShareDialog })));
@@ -316,6 +317,7 @@ export function MailboxTree() {
 function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, childUnread, onToggle, onDrillIn, currentId, onMenu, dragging, acceptsFolder, onFolderDragStart, onFolderDragEnd, onFolderDrop, canPlace, onFolderPlace }: { mailbox: Mailbox; label: string; depth: number; hasChildren: boolean; open: boolean; hiddenUnread: number; childUnread: number; onToggle: () => void; onDrillIn?: () => void; currentId?: string; onMenu: (m: Mailbox, e: { currentTarget: Element }) => void; dragging: boolean; acceptsFolder: boolean; onFolderDragStart: () => void; onFolderDragEnd: () => void; onFolderDrop: (id: Id) => void; canPlace: (placement: Placement) => boolean; onFolderPlace: (id: Id, placement: Placement) => void }) {
   /** Where a drop here would land: in this folder, or just above or below it. */
   const [drop, setDrop] = useState<"into" | Placement | null>(null);
+  const sideways = useSidewaysReplace();
   /** Expanding in place and drilling in are the same relationship; only one shows. */
   const twisty = hasChildren && !onDrillIn;
   // Scheduled counts like Drafts: everything in it is already read, so the
@@ -400,6 +402,7 @@ function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, 
   return (
     <Link
       href={`/mail/${m.id}`}
+      replace={sideways}
       className={`nav-item folder-row depth-${Math.min(depth, 4)} ${currentId === m.id ? "active" : ""} ${unread ? "unread" : ""} ${drop === "into" ? "drop-target" : drop ? `drop-${drop}` : ""} ${dragging ? "dragging" : ""}`}
       title={label}
       {...press}

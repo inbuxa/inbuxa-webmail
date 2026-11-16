@@ -28,6 +28,7 @@ import { t } from "@/lib/i18n";
 import { hasAdministration } from "@/lib/admin/adminAccess";
 import { usePermissions } from "./admin/usePermissions";
 import { AdminNav } from "./admin/AdminNav";
+import { useSidewaysReplace } from "@/lib/backStack";
 
 // The other sections' sidebars load with the section, as their views already do.
 const FilesTree = lazy(() => import("./files/FilesTree").then((m) => ({ default: m.FilesTree })));
@@ -52,6 +53,7 @@ const PUSH_LABEL = {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
+  const sideways = useSidewaysReplace();
   const isMobile = useIsMobile();
   const collapsed = useSettings((s) => s.settings.sidebarCollapsed);
   const inboxUnread = useMail((s) => Object.values(s.mailboxes).find((m) => m.role === "inbox")?.unreadEmails ?? 0);
@@ -489,22 +491,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           )}
           <nav className="mobile-tabbar" aria-label={t("Sections")}>
-            <Link href="/mail" className={section === "mail" || section === "search" ? "active" : ""}>
+            <Link href="/mail" replace={sideways} className={section === "mail" || section === "search" ? "active" : ""}>
               <Mail size={22} />
               
               {t("Mail")}
             </Link>
-            <Link href="/calendar" className={section === "calendar" ? "active" : ""}>
+            <Link href="/calendar" replace={sideways} className={section === "calendar" ? "active" : ""}>
               <Calendar size={22} />
               
               {t("Calendar")}
             </Link>
-            <Link href="/contacts" className={section === "contacts" ? "active" : ""}>
+            <Link href="/contacts" replace={sideways} className={section === "contacts" ? "active" : ""}>
               <Users size={22} />
               
               {t("Contacts")}
             </Link>
-            <Link href="/files" className={section === "files" ? "active" : ""}>
+            <Link href="/files" replace={sideways} className={section === "files" ? "active" : ""}>
               <FolderOpen size={22} />
               
               {t("Files")}
@@ -520,7 +522,7 @@ export function AppShell({ children }: { children: ReactNode }) {
              still somewhere worth going. */
           need="mayReadItems"
           onClose={() => setGoFolder(false)}
-          onPick={(id) => { setGoFolder(false); navigate(`/mail/${id}`); }}
+          onPick={(id) => { setGoFolder(false); navigate(`/mail/${id}`, { replace: sideways }); }}
         />
       )}
     </div>
@@ -529,8 +531,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 /** The app rail down the left edge, which replaces the module bar on a wide screen. */
 function RailLink({ href, icon, label, active, badge = 0 }: { href: string; icon: ReactNode; label: string; active: boolean; badge?: number }) {
+  const sideways = useSidewaysReplace();
   return (
-    <Link href={href} className={`rail-link ${active ? "active" : ""}`} title={label} aria-label={label} aria-current={active ? "page" : undefined}>
+    <Link href={href} replace={sideways} className={`rail-link ${active ? "active" : ""}`} title={label} aria-label={label} aria-current={active ? "page" : undefined}>
       {icon}
       {badge > 0 && <span className="rail-badge">{badge > 999 ? "999+" : badge}</span>}
     </Link>
@@ -539,8 +542,9 @@ function RailLink({ href, icon, label, active, badge = 0 }: { href: string; icon
 
 /** Outlook-style module switcher at the bottom of the folder pane. */
 function ModuleLink({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
+  const sideways = useSidewaysReplace();
   return (
-    <Link href={href} className={`module-link ${active ? "active" : ""}`} title={label} aria-label={label} aria-current={active ? "page" : undefined}>
+    <Link href={href} replace={sideways} className={`module-link ${active ? "active" : ""}`} title={label} aria-label={label} aria-current={active ? "page" : undefined}>
       {icon}
       <span className="module-label">{label}</span>
     </Link>
