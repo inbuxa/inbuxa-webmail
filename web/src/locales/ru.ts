@@ -957,6 +957,8 @@ export const catalog: Catalog = {
     "This is my own device": "Это моё личное устройство",
     "Stay signed in, and keep settings and recent addresses on this computer.": "Оставаться в системе и сохранять настройки и недавние адреса на этом компьютере.",
     "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "Выход после 5 минут бездействия, на этом компьютере ничего не сохраняется. Не отмечайте этот пункт на общем или публичном компьютере.",
+    "Sign in": "Войти",
+    "Signing in…": "Выполняется вход…",
     "this device": "это устройство",
     "Device": "Устройство",
     "IP": "IP",

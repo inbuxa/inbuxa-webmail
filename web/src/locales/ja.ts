@@ -954,6 +954,8 @@ export const catalog: Catalog = {
     "This is my own device": "これは自分のデバイスです",
     "Stay signed in, and keep settings and recent addresses on this computer.": "サインインしたままにし、設定と最近使ったアドレスをこのコンピューターに保存します。",
     "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "5分間操作がないとサインアウトし、このコンピューターには何も保存しません。共用や公共のコンピューターではチェックを入れないでください。",
+    "Sign in": "サインイン",
+    "Signing in…": "サインインしています…",
     "this device": "このデバイス",
     "Device": "デバイス",
     "IP": "IP",

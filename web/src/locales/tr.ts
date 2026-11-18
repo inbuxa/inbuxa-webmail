@@ -1309,6 +1309,8 @@ export const catalog: Catalog = {
 		"This is my own device": "Bu benim kendi cihazım",
 		"Stay signed in, and keep settings and recent addresses on this computer.": "Oturum açık kalsın; ayarlar ve son kullanılan adresler bu bilgisayarda saklansın.",
 		"Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "5 dakika işlem yapılmazsa oturum kapanır ve bu bilgisayarda hiçbir şey saklanmaz. Paylaşılan veya herkese açık bir bilgisayarda bu kutuyu işaretlemeyin.",
+		"Sign in": "Giriş yap",
+		"Signing in…": "Giriş yapılıyor…",
 		"This is separate from {setting} in General, which decides how dates, times and numbers are written. You can read an English interface with German dates, or the other way round.": "Bu, Genel bölümünde tarihlerin, saatlerin ve sayıların nasıl yazılacağını belirleyen {setting} ayarından ayrıdır. İngilizce bir arayüzü Almanca tarihlerle veya tam tersi şekilde kullanabilirsiniz.",
 		"This is what a new-mail notification looks like.": "Yeni posta bildirimi bu şekilde görünür.",
 		"This link does not go where it says": "Bu bağlantı belirttiği adrese gitmiyor",
