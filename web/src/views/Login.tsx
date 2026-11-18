@@ -107,6 +107,15 @@ export function LoginPage() {
             {error}
           </div>
         )}
+        {/*
+          Until /api/config says how this installation signs people in, the
+          fields are laid out but hidden. Showing the password form first and
+          then swapping it for the server's sign-in read as a glitch (#102).
+          Hidden, not left out, so the card keeps its size while it waits. The
+          key remounts the fields once the mode is known, so autoFocus lands
+          then: a hidden input can't take focus.
+        */}
+        <div key={signIn ?? "pending"} style={signIn === null ? { visibility: "hidden" } : undefined} aria-hidden={signIn === null || undefined}>
         {!direct && (
         <div className="field">
           <label htmlFor="u">{t("Email or username")}</label>
@@ -130,14 +139,15 @@ export function LoginPage() {
           </div>
         </div>
         )}
+        </div>
         <label className="check" style={{ marginBottom: 4 }}>
           <input type="checkbox" checked={trustDevice} onChange={(e) => setTrustDevice(e.target.checked)} />
           <span>{t("This is my own device")}</span>
         </label>
         <p className="hint" style={{ marginBottom: 12 }}>
           {trustDevice
-            ? "Stay signed in, and keep settings and recent addresses on this computer."
-            : "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one."}
+            ? t("Stay signed in, and keep settings and recent addresses on this computer.")
+            : t("Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.")}
         </p>
         <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy || signIn === null}>
           {busy ? <span className="spinner" style={{ borderTopColor: "#fff" }} /> : <LogIn size={18} />}

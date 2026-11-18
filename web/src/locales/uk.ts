@@ -949,6 +949,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Завершити всі інші сеанси",
     "Signed in as": "Вхід виконано як",
     "This is my own device": "Це мій власний пристрій",
+    "Stay signed in, and keep settings and recent addresses on this computer.": "Залишатися в системі та зберігати налаштування й нещодавні адреси на цьому комп’ютері.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "Вихід після 5 хвилин бездіяльності, на цьому комп’ютері нічого не зберігається. Не позначайте цей пункт на спільному чи публічному комп’ютері.",
     "this device": "цей пристрій",
     "Device": "Пристрій",
     "IP": "IP",
