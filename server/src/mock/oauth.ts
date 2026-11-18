@@ -28,13 +28,18 @@ const base = () => `http://127.0.0.1:${PORT}`;
  * C-23). Off by default, since the mock also serves password sign-in.
  */
 export let basicRefused = false;
+/** Whether the metadata offers RFC 7009 revocation, as inbuxa-server 27.1 does. */
+export let revocationOffered = true;
 
 /** For tests: how long new access tokens last, and a way to end every token. */
 export const oauthMock = {
   setAccessTokenTtl(seconds: number) { accessTokenTtl = seconds; },
   expireAccessTokens() { for (const t of accessTokens.values()) t.expiresAt = 0; },
   refuseBasic(on: boolean) { basicRefused = on; },
-  reset() { codes.clear(); accessTokens.clear(); refreshTokens.clear(); accessTokenTtl = 3600; basicRefused = false; },
+  offerRevocation(on: boolean) { revocationOffered = on; },
+  /** Tokens revoked so far, by RFC 7009. */
+  revoked: [] as string[],
+  reset() { codes.clear(); accessTokens.clear(); refreshTokens.clear(); accessTokenTtl = 3600; basicRefused = false; revocationOffered = true; oauthMock.revoked.length = 0; },
 };
 
 /** A bearer token the mock issued, still valid under the current password. */
@@ -84,6 +89,7 @@ export async function handleOAuth(req: IncomingMessage, res: ServerResponse, url
       issuer: base(),
       authorization_endpoint: `${base()}/login`,
       token_endpoint: `${base()}/auth/token`,
+      ...(revocationOffered ? { revocation_endpoint: `${base()}/auth/revoke` } : {}),
       grant_types_supported: ["authorization_code", "refresh_token"],
       response_types_supported: ["code"],
       scopes_supported: ["openid", "offline_access"],
@@ -135,6 +141,19 @@ export async function handleOAuth(req: IncomingMessage, res: ServerResponse, url
     const code = randomBytes(16).toString("hex");
     codes.set(code, { challenge: String(body.codeChallenge ?? ""), redirectUri, issuedAt: Date.now() });
     json(res, 200, { type: "authenticated", client_code: code, iss: base() });
+    return true;
+  }
+  if (url.pathname === "/auth/revoke" && req.method === "POST" && revocationOffered) {
+    // RFC 7009: this client's secret, then the token goes, whatever it was
+    const form = await readForm(req);
+    if (form.get("client_id") !== OAUTH_CLIENT_ID || form.get("client_secret") !== OAUTH_CLIENT_SECRET) {
+      json(res, 401, { error: "invalid_client" });
+      return true;
+    }
+    const token = form.get("token") ?? "";
+    if (accessTokens.delete(token) || refreshTokens.delete(token)) oauthMock.revoked.push(token);
+    res.writeHead(200);
+    res.end();
     return true;
   }
   if (url.pathname === "/auth/token" && req.method === "POST") {

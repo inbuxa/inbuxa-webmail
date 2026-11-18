@@ -1110,6 +1110,7 @@ export const catalog: Catalog = {
     "You're signed in as {user}. Your password is never stored in the browser; the server keeps it encrypted per-session for talking to the mail server.": "您已以 {user} 身份登录。您的密码从不保存在浏览器中；服务器会按会话加密保存它，用于与邮件服务器通信。",
     "App passwords are managed by your mail administrator.": "应用专用密码由您的邮件管理员管理。",
     "Changing your password signs out your other webmail sessions. Any app passwords keep working.": "更改密码会让您的其他网页邮箱会话退出登录。已有的应用专用密码仍可继续使用。",
+    "This webmail can't list your other sessions. Changing your password signs you out everywhere.": "此网页邮箱无法列出您的其他会话。更改密码会让您在所有地方退出登录。",
     "This account has two-factor authentication on. {app} can't sign you in with a code yet, so signing in on another device needs an app password \u2014 or you can turn two-factor authentication off here.": "\u6b64\u8d26\u6237\u5df2\u5f00\u542f\u4e24\u6b65\u9a8c\u8bc1\u3002{app} \u76ee\u524d\u8fd8\u4e0d\u80fd\u901a\u8fc7\u9a8c\u8bc1\u7801\u767b\u5f55\uff0c\u56e0\u6b64\u5728\u5176\u4ed6\u8bbe\u5907\u4e0a\u767b\u5f55\u9700\u8981\u4f7f\u7528\u5e94\u7528\u4e13\u7528\u5bc6\u7801\u2014\u2014\u60a8\u4e5f\u53ef\u4ee5\u5728\u8fd9\u91cc\u5173\u95ed\u4e24\u6b65\u9a8c\u8bc1\u3002",
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.": "为某个邮件应用或设备单独设置的密码，可以单独吊销。应用专用密码会跳过两步验证码，因此在无法输入验证码的应用中仍然可用。",
     "Copy it into {name} now — it isn't shown again.": "请立即把它复制到 {name}——它不会再次显示。",

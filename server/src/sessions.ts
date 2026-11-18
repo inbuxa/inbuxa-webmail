@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { config } from "./config.js";
-import { deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
+import { cookieKey, deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 import type { TokenSet } from "./oauth.js";
 
 export interface StoredSession {
@@ -107,13 +107,28 @@ export interface CreateSessionParams {
  * Stalwart's own token registry, which can already answer both questions.
  */
 export interface SessionBackend {
+  /**
+   * Whether `listForUser` and `destroyAllForUser` can reach sessions other
+   * than the one presenting itself. False for the cookie backend.
+   */
+  readonly enumerable: boolean;
   init(): Promise<void>;
   close(): Promise<void>;
   create(params: CreateSessionParams): { cookie: string; session: LiveSession };
   resolve(cookie: string | undefined): LiveSession | null;
   reseal(cookie: string | undefined, password: string): boolean;
-  /** Store renewed OAuth tokens in place of the ones the session holds. */
-  updateTokens(cookie: string | undefined, tokens: TokenSet): boolean;
+  /**
+   * Store renewed OAuth tokens in place of the ones the session holds. Returns
+   * the cookie to use from now on (the same one, for a backend that keeps the
+   * record itself), or null when the cookie doesn't resolve.
+   */
+  updateTokens(cookie: string | undefined, tokens: TokenSet): string | null;
+  /**
+   * A new cookie to send, when the backend wants this one re-issued (the
+   * cookie backend's sliding expiry, or a cookie sealed under a retired key).
+   * Null when the cookie stays as it is.
+   */
+  touch(cookie: string | undefined): string | null;
   destroy(id: string): void;
   /** `account` is an `accountKey`, as carried on `LiveSession.account`. */
   destroyAllForUser(account: string, exceptId?: string): number;
@@ -132,6 +147,7 @@ function sealable(username: string, params: { password?: string; tokens?: TokenS
 }
 
 export class SessionStore implements SessionBackend {
+  readonly enumerable = true;
   private sessions = new Map<string, StoredSession>();
   private dirty = false;
   private saveTimer: NodeJS.Timeout | null = null;
@@ -274,8 +290,13 @@ export class SessionStore implements SessionBackend {
     return this.rewrite(cookie, (username) => ({ u: username, p: password }));
   }
 
-  updateTokens(cookie: string | undefined, tokens: TokenSet): boolean {
-    return this.rewrite(cookie, (username) => ({ u: username, t: tokens }));
+  updateTokens(cookie: string | undefined, tokens: TokenSet): string | null {
+    return this.rewrite(cookie, (username) => ({ u: username, t: tokens })) ? cookie! : null;
+  }
+
+  /** Expiry slides in `resolve`, and the cookie itself never changes. */
+  touch(_cookie: string | undefined): string | null {
+    return null;
   }
 
   private rewrite(cookie: string | undefined, next: (username: string) => Sealed): boolean {
@@ -335,6 +356,147 @@ export class SessionStore implements SessionBackend {
       expiresAt: s.expiresAt,
       userAgent: s.userAgent,
       ip: s.ip,
+    };
+  }
+}
+
+/*
+ * inbuxa K-W1: sessions carried whole in the cookie, so that any replica can
+ * serve a session it never issued and the webmail keeps no state of its own.
+ *
+ * The cookie is `s1.<kid>.<sealed>`: the record below sealed with AES-256-GCM
+ * under a key derived from APP_SECRET (`cookieKey`), `kid` naming that key.
+ * APP_SECRET_PREVIOUS keys still open cookies, and a cookie opened with one is
+ * re-sealed under the current key on its next request (`touch`).
+ *
+ * What it can't do, by construction: list a user's other sessions or end
+ * them, so `enumerable` is false and the UI hides both. Ending this session is
+ * deleting the cookie; the server revokes the tokens behind every session when
+ * the password changes. Password sessions aren't offered at all (config.ts
+ * refuses cookie mode without OAuth): a sealed password couldn't be revoked.
+ */
+const COOKIE_V1 = "s1";
+
+/** The sealed record. Short keys: it travels on every request. */
+interface CookieRecord {
+  i: string; // session id
+  u: string; // username
+  a: string; // accountKey
+  t: TokenSet;
+  c: number; // createdAt
+  l: number; // lastSeenAt
+  e: number; // expiresAt
+  r: boolean; // remember
+}
+
+export class CookieSessionStore implements SessionBackend {
+  readonly enumerable = false;
+  private readonly keys: { kid: string; key: Buffer }[];
+
+  constructor(appSecret: string, previous: string[] = []) {
+    this.keys = [appSecret, ...previous].map(cookieKey);
+  }
+
+  async init(): Promise<void> {}
+  async close(): Promise<void> {}
+
+  create(params: CreateSessionParams): { cookie: string; session: LiveSession } {
+    if (!params.tokens) throw new Error("cookie sessions hold OAuth tokens only");
+    const now = Date.now();
+    const record: CookieRecord = {
+      i: randomToken(18),
+      u: params.username,
+      a: params.account ?? params.username.trim().toLowerCase(),
+      t: params.tokens,
+      c: now,
+      l: now,
+      e: now + this.ttl(params.remember),
+      r: params.remember,
+    };
+    return { cookie: this.seal(record), session: this.toLive(record) };
+  }
+
+  resolve(cookie: string | undefined): LiveSession | null {
+    const opened = this.open(cookie);
+    return opened ? this.toLive(opened.record) : null;
+  }
+
+  touch(cookie: string | undefined): string | null {
+    const opened = this.open(cookie);
+    if (!opened) return null;
+    const now = Date.now();
+    const stale = now - opened.record.l > 60_000;
+    if (!stale && opened.current) return null;
+    if (stale) {
+      opened.record.l = now;
+      opened.record.e = now + this.ttl(opened.record.r);
+    }
+    return this.seal(opened.record);
+  }
+
+  /** Cookie sessions hold no password to re-seal. */
+  reseal(_cookie: string | undefined, _password: string): boolean {
+    return false;
+  }
+
+  updateTokens(cookie: string | undefined, tokens: TokenSet): string | null {
+    const opened = this.open(cookie);
+    if (!opened) return null;
+    opened.record.t = tokens;
+    return this.seal(opened.record);
+  }
+
+  /** Nothing is kept here: the caller deletes the cookie. */
+  destroy(_id: string): void {}
+
+  destroyAllForUser(_account: string, _exceptId?: string): number {
+    return 0;
+  }
+
+  listForUser(_account: string): SessionSummary[] {
+    return [];
+  }
+
+  private ttl(remember: boolean): number {
+    return (remember ? config.sessionRememberTtl : config.sessionTtl) * 1000;
+  }
+
+  private seal(record: CookieRecord): string {
+    const { kid, key } = this.keys[0]!;
+    return `${COOKIE_V1}${COOKIE_SEP}${kid}${COOKIE_SEP}${seal(JSON.stringify(record), key)}`;
+  }
+
+  private open(cookie: string | undefined): { record: CookieRecord; current: boolean } | null {
+    if (!cookie) return null;
+    const [version, kid, sealed, extra] = cookie.split(COOKIE_SEP);
+    if (version !== COOKIE_V1 || !kid || !sealed || extra !== undefined) return null;
+    const at = this.keys.findIndex((k) => k.kid === kid);
+    if (at < 0) return null;
+    const json = open(sealed, this.keys[at]!.key);
+    if (!json) return null;
+    let record: CookieRecord;
+    try {
+      record = JSON.parse(json) as CookieRecord;
+    } catch {
+      return null;
+    }
+    if (typeof record.e !== "number" || record.e <= Date.now() || !record.t?.access) return null;
+    return { record, current: at === 0 };
+  }
+
+  private toLive(r: CookieRecord): LiveSession {
+    return {
+      id: r.i,
+      username: r.u,
+      account: r.a,
+      authorization: `Bearer ${r.t.access}`,
+      tokens: r.t,
+      remember: r.r,
+      createdAt: r.c,
+      lastSeenAt: r.l,
+      expiresAt: r.e,
+      userAgent: "",
+      ip: "",
     };
   }
 }
