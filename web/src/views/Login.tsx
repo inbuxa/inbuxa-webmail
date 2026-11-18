@@ -7,6 +7,7 @@ import { signInTheme } from "@/lib/signInTheme";
 import { APP_VERSION } from "@/lib/version";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { DEFAULT_APP_NAME, brandImage } from "@/lib/brand";
+import { useServerLogo } from "@/lib/serverLogo";
 import { t } from "@/lib/i18n";
 import { InbuxaWordmark } from "@/ui/InbuxaWordmark";
 
@@ -28,6 +29,7 @@ export function LoginPage() {
    * sign-in form with no name on it would be worse than a wrong one.
    */
   const [appName, setAppName] = useState(DEFAULT_APP_NAME);
+  const serverLogo = useServerLogo();
   /*
    * How this installation signs people in: on the mail server's own page
    * ("oauth"), or with the password form. Unknown until the config arrives,
@@ -94,7 +96,19 @@ export function LoginPage() {
     <div className="login-page">
       <form className="login-card" onSubmit={submit}>
         <div className="logo">
-          <img src={brandImage(appName === DEFAULT_APP_NAME ? "/img/inbuxa-mark.png" : "/img/logo.png")} alt="" width={120} height={126} />
+          {/* The logo the server's administrator set, else the built-in
+              one; held in place, unseen, until the server has answered. */}
+          {serverLogo.status === "custom" ? (
+            <img className="server-logo" src={serverLogo.url} alt="" />
+          ) : (
+            <img
+              src={brandImage(appName === DEFAULT_APP_NAME ? "/img/inbuxa-mark.png" : "/img/logo.png")}
+              alt=""
+              width={120}
+              height={126}
+              style={serverLogo.status === "loading" ? { visibility: "hidden" } : undefined}
+            />
+          )}
           {/* A product name, not a word: not translated, and not guessed at
               from the page it is on. INBUXA's is its wordmark. */}
           <h1 className="notranslate" translate="no">

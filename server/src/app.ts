@@ -14,6 +14,7 @@ import { fetchPermissions } from "./permissionSchema.js";
 import { administrationAllowed, gateAdministration, grantsAdministration } from "./adminGate.js";
 import { CookieSessionStore, SessionStore, accountKey, type SessionBackend, type LiveSession } from "./sessions.js";
 import { RateLimiter } from "./ratelimit.js";
+import { logoHandler } from "./logo.js";
 import { rateLimitKey, resolveClientIp } from "./clientip.js";
 import { safeEqual } from "./crypto.js";
 import {
@@ -78,6 +79,8 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  */
 const accountLimiter = new RateLimiter(10, 15 * 60_000);
 const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
+/* The branding logo is asked for before sign-in, so it's limited by address. */
+const logoLimiter = new RateLimiter(120, 60_000);
 
 /** Per-session budget on the data path. See config.apiRateLimit. */
 const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
@@ -556,6 +559,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       signInDirect: oauthEnabled() && singleServer(),
     }),
   );
+
+  /* The mail server's branding logo (inbuxa-webmail #101); see logo.ts. */
+  api.get("/logo", async (c) => {
+    if (!logoLimiter.check(rateLimitKey(clientIp(c)))) return c.body(null, 429);
+    return logoHandler(c);
+  });
 
   // ---------- Auth ----------
   /*

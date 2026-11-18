@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Calendar, Check, ChevronsUpDown, FolderOpen, Globe, HelpCircle, Lock, LogOut, Mail, Menu as MenuIcon, Moon, PanelLeftClose, PanelLeftOpen, PenSquare, Plus, RefreshCw, Settings, ShieldCheck, Sun, Upload, Users, X } from "lucide-react";
 import { useSession } from "@/store/session";
 import { DEFAULT_APP_NAME, brandImage } from "@/lib/brand";
+import { useServerLogo } from "@/lib/serverLogo";
 import { InbuxaWordmark } from "@/ui/InbuxaWordmark";
 import { useEffectiveTheme, useSettings } from "@/store/settings";
 import { toggleTarget } from "@/lib/palette";
@@ -111,6 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
   }, []);
   const appName = useSession((s) => s.session?.ihasmail?.appName) || DEFAULT_APP_NAME;
+  const serverLogo = useServerLogo();
   const acctMenu = useMenu();
   const administers = hasAdministration(usePermissions());
   const needsOwnDevice = useSession((s) => Boolean(s.session?.ihasmail?.administrationNeedsOwnDevice));
@@ -214,14 +216,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         )}
         <Link href="/mail" className={`brand ${lockedInView ? "locked" : ""}`}>
-          <img src={brandImage(appName === DEFAULT_APP_NAME ? "/img/inbuxa-mark.png" : "/img/logo.png")} alt="" />
+          {/* The logo the server's administrator set, else the built-in
+              one; held in place, unseen, until the server has answered. */}
+          {serverLogo.status === "custom" ? (
+            <img className="server-logo" src={serverLogo.url} alt="" />
+          ) : (
+            <img
+              src={brandImage(appName === DEFAULT_APP_NAME ? "/img/inbuxa-mark.png" : "/img/logo.png")}
+              alt=""
+              style={serverLogo.status === "loading" ? { visibility: "hidden" } : undefined}
+            />
+          )}
           {lockedInView && <Lock size={18} className="brand-lock" aria-label={t("Locked account")} />}
           {/* A product name, not a word: translated it is a different product.
               Read from the session rather than written here, so a deployment
               that set APP_NAME is called what it calls itself -- the document
-              title has taken it from there all along. */}
+              title has taken it from there all along. The inbuxa wordmark
+              makes way for a logo of the server's own. */}
           {appName === DEFAULT_APP_NAME ? (
-            <InbuxaWordmark className="brand-name" height={22} />
+            serverLogo.status === "custom" ? null : <InbuxaWordmark className="brand-name" height={22} />
           ) : (
             <span className="brand-name notranslate" translate="no">
               {appName}
