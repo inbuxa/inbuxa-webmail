@@ -1246,6 +1246,8 @@ a.menu-item:hover { color: var(--fg); }
 .topbar { display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--bg); position: relative; z-index: 50; }
 .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2em; letter-spacing: -.01em; color: var(--fg); text-decoration: none; padding-right: 8px; min-width: 0; }
 .topbar .brand img { width: 34px; height: 34px; object-fit: contain; }
+/* inbuxa-webmail #101: a logo the server's administrator set keeps its own shape. */
+.topbar .brand img.server-logo { width: auto; max-width: 180px; }
 .topbar .brand .brand-name { color: #14b8a6; }
 .topbar .brand .brand-name span { color: var(--fg-muted); font-weight: 500; }
 /*
@@ -2129,6 +2131,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .login-card { width: 100%; max-width: 400px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 32px 28px 24px; animation: rise .25s var(--ease); }
 .login-card .logo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 20px; }
 .login-card .logo img { width: 120px; height: auto; }
+.login-card .logo img.server-logo { width: auto; max-width: 260px; max-height: 126px; object-fit: contain; }
 /* The logo is the mark alone, so the name is set here rather than baked in. */
 .login-card h1 { margin: 0; font-size: 1.6em; font-weight: 800; letter-spacing: -.02em; color: #14b8a6; }
 .login-card .sub { color: var(--fg-muted); font-size: .92em; margin: 0; }
