@@ -116,7 +116,12 @@ test("start sends the browser to the server's page with PKCE and a bound state",
   assert.match(to.searchParams.get("code_challenge") ?? "", /^[\w-]{43}$/);
   assert.equal(to.searchParams.get("login_hint"), "demo@example.com");
   assert.equal(to.searchParams.get("scope"), "openid offline_access");
-  assert.equal(jar.get("ihm_session_signin"), to.searchParams.get("state"), "the state is bound to this browser");
+  // The state, bound to this browser, and the sign-in in progress, sealed:
+  // nothing in it (the PKCE verifier, the address) is readable
+  const bound = jar.get("ihm_session_signin")!;
+  assert.ok(bound.startsWith(`${to.searchParams.get("state")}.`), "the state is bound to this browser");
+  assert.ok(!bound.includes("demo"));
+  assert.ok(bound.length < 1024, `the cookie is ${bound.length} bytes`);
 });
 
 test("start passes on the light or dark look for the server's page, and nothing else", async () => {
@@ -151,13 +156,47 @@ test("a callback from a sign-in this browser didn't start is refused", async () 
   assert.equal(jar.get("ihm_session"), undefined);
 });
 
-test("a state is good for one attempt", async () => {
+test("a sign-in is good for one attempt", async () => {
   const back = await goToServerAndBack();
-  const state = jar.get("ihm_session_signin")!;
+  const bound = jar.get("ihm_session_signin")!;
   await call(`/api/auth/callback${back.search}`);
-  jar = new Map([["ihm_session_signin", state]]);
+  // The callback deleted the cookie; a copy of it, replayed with the same
+  // code, finds the code spent at the server
+  jar = new Map([["ihm_session_signin", bound]]);
   const again = await call(`/api/auth/callback${back.search}`);
-  assert.equal(again.headers.get("location"), "/?signin_error=state_mismatch");
+  assert.equal(again.headers.get("location"), "/?signin_error=exchange_failed");
+  assert.equal(jar.get("ihm_session"), undefined);
+});
+
+test("the sign-in rides in the browser's cookie, so another replica can finish it", async () => {
+  const back = await goToServerAndBack();
+  // What this process remembered of the sign-in is gone, as on a replica
+  // that never saw the start
+  resetOAuthState();
+  const res = await call(`/api/auth/callback${back.search}`);
+  assert.equal(res.headers.get("location"), "/");
+  assert.ok(jar.get("ihm_session"));
+});
+
+test("a state cookie that was altered, or names another state, is refused", async () => {
+  const back = await goToServerAndBack();
+  const bound = jar.get("ihm_session_signin")!;
+  const dot = bound.indexOf(".");
+  const sealed = bound.slice(dot + 1);
+  const flipped = sealed.slice(0, -2) + (sealed.at(-2) === "A" ? "B" : "A") + sealed.at(-1);
+  const state = bound.slice(0, dot);
+  // A changed byte, a stray character, and the state alone with nothing sealed
+  for (const cookie of [`${state}.${flipped}`, `${state}.${sealed}x`, state]) {
+    jar = new Map([["ihm_session_signin", cookie]]);
+    const res = await call(`/api/auth/callback${back.search}`);
+    assert.equal(res.headers.get("location"), "/?signin_error=state_mismatch", cookie.slice(0, 20));
+  }
+  // The genuine cookie for a different state than the URL's
+  await call("/api/auth/oauth/start?username=demo@example.com");
+  const other = jar.get("ihm_session_signin")!;
+  jar = new Map([["ihm_session_signin", other]]);
+  const res = await call(`/api/auth/callback${back.search}`);
+  assert.equal(res.headers.get("location"), "/?signin_error=state_mismatch");
 });
 
 test("cancelling on the server's page comes back as an error, not a session", async () => {

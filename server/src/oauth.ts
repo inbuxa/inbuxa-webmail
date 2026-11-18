@@ -26,7 +26,7 @@
  */
 import { createHash } from "node:crypto";
 import { config } from "./config.js";
-import { randomToken } from "./crypto.js";
+import { open, randomToken, safeEqual, seal, signInKey } from "./crypto.js";
 import { UpstreamError, absoluteUpstream } from "./upstream.js";
 
 export interface TokenSet {
@@ -49,7 +49,6 @@ export const REFRESH_MARGIN_MS = 5 * 60_000;
 /** How long a sign-in may take between leaving and coming back. */
 const PENDING_TTL_MS = 10 * 60_000;
 const METADATA_TTL_MS = 60 * 60_000;
-const MAX_PENDING = 10_000;
 
 export function oauthEnabled(): boolean {
   return Boolean(config.oauthClientSecret);
@@ -96,7 +95,13 @@ async function metadataFor(base: string): Promise<Metadata> {
   return metadata;
 }
 
+/**
+ * A sign-in between leaving for the server's page and coming back. It travels
+ * sealed in the browser's state cookie rather than in this process, so the
+ * callback can land on any replica that holds the same APP_SECRET (K-C3).
+ */
 interface Pending {
+  state: string;
   verifier: string;
   base: string;
   username: string;
@@ -106,10 +111,26 @@ interface Pending {
   createdAt: number;
 }
 
-const pending = new Map<string, Pending>();
+/** The state cookie: `<state>.<the pending sign-in, sealed>`. */
+function sealPending(p: Pending): string {
+  return `${p.state}.${seal(JSON.stringify(p), signInKey(config.appSecret))}`;
+}
 
-function sweepPending(now = Date.now()) {
-  for (const [state, p] of pending) if (now - p.createdAt > PENDING_TTL_MS) pending.delete(state);
+/** The pending sign-in a state cookie holds, under the current key or a retired one. */
+function openPending(cookie: string): Pending | null {
+  const dot = cookie.indexOf(".");
+  if (dot < 1) return null;
+  const sealed = cookie.slice(dot + 1);
+  for (const secret of [config.appSecret, ...config.appSecretPrevious]) {
+    const json = open(sealed, signInKey(secret));
+    if (json === null) continue;
+    try {
+      return JSON.parse(json) as Pending;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function challengeOf(verifier: string): string {
@@ -117,16 +138,14 @@ function challengeOf(verifier: string): string {
 }
 
 /**
- * Begin a sign-in. Returns where to send the browser, and the state to bind
- * to it in a cookie.
+ * Begin a sign-in. Returns where to send the browser, and the cookie that
+ * binds the sign-in to it: the state, and the pending sign-in sealed.
  */
-export async function start(params: { username: string; base: string; remember: boolean; adding?: boolean; theme?: "light" | "dark" }): Promise<{ location: string; state: string }> {
+export async function start(params: { username: string; base: string; remember: boolean; adding?: boolean; theme?: "light" | "dark" }): Promise<{ location: string; cookie: string }> {
   const metadata = await metadataFor(params.base);
-  sweepPending();
-  if (pending.size >= MAX_PENDING) throw new UpstreamError("Too many sign-ins in progress", 503);
   const state = randomToken(24);
   const verifier = randomToken(48);
-  pending.set(state, { verifier, base: params.base, username: params.username, remember: params.remember, adding: Boolean(params.adding), createdAt: Date.now() });
+  const cookie = sealPending({ state, verifier, base: params.base, username: params.username, remember: params.remember, adding: Boolean(params.adding), createdAt: Date.now() });
   const scope = ["openid", "offline_access"].filter((s) => metadata.scopes.length === 0 || metadata.scopes.includes(s)).join(" ");
   const url = new URL(metadata.authorizationEndpoint);
   url.searchParams.set("response_type", "code");
@@ -143,7 +162,7 @@ export async function start(params: { username: string; base: string; remember: 
   // inbuxa-server #375: the server's page shows the light or dark look the
   // reader has here; a server that doesn't know the parameter ignores it
   if (params.theme) url.searchParams.set("theme", params.theme);
-  return { location: url.toString(), state };
+  return { location: url.toString(), cookie };
 }
 
 /**
@@ -186,15 +205,16 @@ export class SignInError extends Error {
 }
 
 /**
- * Finish a sign-in: `state` as it came back in the URL, `boundState` as the
- * browser's cookie holds it. Each state is good for one attempt.
+ * Finish a sign-in: `state` as it came back in the URL, `boundCookie` as the
+ * browser's state cookie holds it. The callback deletes the cookie, and the
+ * server takes each code once and only with this sign-in's PKCE verifier, so
+ * each sign-in is good for one attempt.
  */
-export async function finish(params: { state: string; boundState: string | undefined; code: string }): Promise<{ tokens: TokenSet; base: string; username: string; remember: boolean; adding: boolean }> {
-  const p = pending.get(params.state);
-  if (!p || !params.boundState || params.boundState !== params.state) {
+export async function finish(params: { state: string; boundCookie: string | undefined; code: string }): Promise<{ tokens: TokenSet; base: string; username: string; remember: boolean; adding: boolean }> {
+  const p = params.boundCookie ? openPending(params.boundCookie) : null;
+  if (!p || typeof p.state !== "string" || !params.state || !safeEqual(p.state, params.state)) {
     throw new SignInError("state_mismatch", "This sign-in didn't start in this browser. Try again.");
   }
-  pending.delete(params.state);
   if (Date.now() - p.createdAt > PENDING_TTL_MS) throw new SignInError("expired", "The sign-in took too long. Try again.");
   const metadata = await metadataFor(p.base);
   const tokens = await tokenRequest(metadata.tokenEndpoint, {
@@ -283,6 +303,5 @@ export function needsRefresh(tokens: TokenSet, now = Date.now()): boolean {
 
 /** For tests. */
 export function resetOAuthState(): void {
-  pending.clear();
   metadataCache.clear();
 }
