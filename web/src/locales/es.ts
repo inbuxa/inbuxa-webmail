@@ -954,6 +954,8 @@ export const catalog: Catalog = {
     "This is my own device": "Este es mi propio dispositivo",
     "Stay signed in, and keep settings and recent addresses on this computer.": "Mantener la sesión iniciada y guardar la configuración y las direcciones recientes en este equipo.",
     "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "La sesión se cierra tras 5 minutos de inactividad y no se guarda nada en este equipo. Deje esta casilla sin marcar en un equipo compartido o público.",
+    "Sign in": "Iniciar sesión",
+    "Signing in…": "Iniciando sesión…",
     "this device": "este dispositivo",
     "Device": "Dispositivo",
     "IP": "IP",

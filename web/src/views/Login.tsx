@@ -151,7 +151,7 @@ export function LoginPage() {
         </p>
         <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy || signIn === null}>
           {busy ? <span className="spinner" style={{ borderTopColor: "#fff" }} /> : <LogIn size={18} />}
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? t("Signing in…") : t("Sign in")}
         </button>
         <p className="foot">
           {/*
