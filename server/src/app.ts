@@ -12,7 +12,7 @@ import { config } from "./config.js";
 import { sourceDocument } from "./source.js";
 import { fetchPermissions } from "./permissionSchema.js";
 import { administrationAllowed, gateAdministration, grantsAdministration } from "./adminGate.js";
-import { SessionStore, accountKey, type SessionBackend, type LiveSession } from "./sessions.js";
+import { CookieSessionStore, SessionStore, accountKey, type SessionBackend, type LiveSession } from "./sessions.js";
 import { RateLimiter } from "./ratelimit.js";
 import { rateLimitKey, resolveClientIp } from "./clientip.js";
 import { safeEqual } from "./crypto.js";
@@ -51,7 +51,10 @@ import { ADD_REFUSED, MAX_ACCOUNTS, mayAddAccounts, parseOthers, serializeOthers
 
 type Env = { Variables: { session: LiveSession } };
 
-export const sessions: SessionBackend = new SessionStore(config.sessionFile);
+export const sessions: SessionBackend =
+  config.sessionBackend === "cookie"
+    ? new CookieSessionStore(config.appSecret, config.appSecretPrevious)
+    : new SessionStore(config.sessionFile);
 const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
 /*
  * The backstop that is never refunded.
@@ -236,11 +239,16 @@ const limitSmallBody = bodyLimit({ maxSize: MAX_SMALL_BODY, onError: (c) => c.js
 const smallBodies: MiddlewareHandler = (c, next) => (LARGE_BODY_ROUTE.test(c.req.path) ? next() : limitSmallBody(c, next));
 
 const requireSession: MiddlewareHandler<Env> = async (c, next) => {
-  const cookie = getCookie(c, config.cookieName);
+  let cookie = getCookie(c, config.cookieName);
   let session = sessions.resolve(cookie);
   if (session?.tokens && needsRefresh(session.tokens)) {
     try {
-      session = await refreshSession(cookie!, session);
+      const refreshed = await refreshSession(cookie!, session);
+      session = refreshed?.session ?? null;
+      if (refreshed && refreshed.cookie !== cookie) {
+        cookie = refreshed.cookie;
+        setSessionCookie(c, cookie, refreshed.session.remember);
+      }
     } catch (err) {
       // Couldn't ask the server. The token may still have a few minutes; if
       // not, the call itself will say so.
@@ -254,6 +262,9 @@ const requireSession: MiddlewareHandler<Env> = async (c, next) => {
   if (!session) {
     return c.json({ error: "unauthenticated" }, 401);
   }
+  // inbuxa K-W1: the cookie backend slides expiry by re-issuing the cookie.
+  const reissued = sessions.touch(cookie);
+  if (reissued) setSessionCookie(c, reissued, session.remember);
   c.set("session", session);
   await next();
 };
@@ -262,14 +273,14 @@ const requireSession: MiddlewareHandler<Env> = async (c, next) => {
  * One refresh per session at a time: a page opening does several requests at
  * once, and each would otherwise renew the same token.
  */
-const refreshing = new Map<string, Promise<LiveSession | null>>();
+const refreshing = new Map<string, Promise<{ session: LiveSession; cookie: string } | null>>();
 
 /**
  * Renew an OAuth session's access token and keep the new one. Null when the
  * server refused the refresh token (a password change revokes it), which
  * ends the session.
  */
-function refreshSession(cookie: string, session: LiveSession): Promise<LiveSession | null> {
+function refreshSession(cookie: string, session: LiveSession): Promise<{ session: LiveSession; cookie: string } | null> {
   let inFlight = refreshing.get(session.id);
   if (!inFlight) {
     inFlight = (async () => {
@@ -279,8 +290,9 @@ function refreshSession(cookie: string, session: LiveSession): Promise<LiveSessi
         forgetUpstreamSession(session.id);
         return null;
       }
-      sessions.updateTokens(cookie, renewed);
-      return sessions.resolve(cookie);
+      const next = sessions.updateTokens(cookie, renewed);
+      const live = next ? sessions.resolve(next) : null;
+      return next && live ? { session: live, cookie: next } : null;
     })().finally(() => refreshing.delete(session.id));
     refreshing.set(session.id, inFlight);
   }
@@ -353,6 +365,17 @@ function setOthersCookie(c: Context, cookies: string[]) {
     path: cookiePath,
     ...(remember ? { maxAge: config.sessionRememberTtl } : {}),
   });
+}
+
+/**
+ * inbuxa K-W1: put re-issued cookies of accounts not in front back into the
+ * list. Only the cookie backend re-issues; the memory backend's cookies never
+ * change, so this is then a no-op.
+ */
+function replaceOthers(c: Context, replaced: Map<string, string>) {
+  if (!replaced.size) return;
+  const current = parseOthers(getCookie(c, OTHERS_COOKIE));
+  setOthersCookie(c, current.map((cookie) => replaced.get(cookie) ?? cookie));
 }
 
 /** The other accounts still signed in, in their order; ended ones are left out. */
@@ -832,13 +855,18 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * several tabs may ask at once.
    */
   api.get("/auth/accounts/unread", requireSession, async (c) => {
+    const replaced = new Map<string, string>();
     const answers = await Promise.all(
       liveOthers(c).map(async ({ cookie, session }) => {
         const cached = unreadCache.get(session.id);
         if (cached && Date.now() - cached.at < UNREAD_CACHE_MS) return { id: session.id, unread: cached.unread };
         try {
           let live: LiveSession | null = session;
-          if (live.tokens && needsRefresh(live.tokens)) live = await refreshSession(cookie, live);
+          if (live.tokens && needsRefresh(live.tokens)) {
+            const refreshed = await refreshSession(cookie, live);
+            live = refreshed?.session ?? null;
+            if (refreshed && refreshed.cookie !== cookie) replaced.set(cookie, refreshed.cookie);
+          }
           if (!live) return { id: session.id, unread: null };
           const unread = await inboxUnread(live);
           unreadCache.set(session.id, { unread, at: Date.now() });
@@ -848,6 +876,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         }
       }),
     );
+    replaceOthers(c, replaced);
     return c.json({ accounts: answers });
   });
 
@@ -867,7 +896,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     const using = Array.isArray(body.using) ? body.using.filter((u): u is string => typeof u === "string") : [];
     let session: LiveSession | null = other.session;
-    if (session.tokens && needsRefresh(session.tokens)) session = await refreshSession(other.cookie, session);
+    if (session.tokens && needsRefresh(session.tokens)) {
+      const refreshed = await refreshSession(other.cookie, session);
+      session = refreshed?.session ?? null;
+      if (refreshed && refreshed.cookie !== other.cookie) replaceOthers(c, new Map([[other.cookie, refreshed.cookie]]));
+    }
     if (!session) return c.json({ error: "unauthenticated" }, 401);
     try {
       const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
@@ -903,11 +936,17 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   api.get("/auth/sessions", requireSession, (c) => {
     const session = c.get("session");
-    return c.json({ current: session.id, sessions: sessions.listForUser(session.account) });
+    if (!sessions.enumerable) {
+      // inbuxa K-W1: the cookie backend only knows the session presenting itself.
+      const { authorization: _a, tokens: _t, account: _c, ...summary } = session;
+      return c.json({ current: session.id, enumerable: false, sessions: [{ ...summary, userAgent: c.req.header("user-agent")?.slice(0, 200) ?? "" }] });
+    }
+    return c.json({ current: session.id, enumerable: true, sessions: sessions.listForUser(session.account) });
   });
 
   api.post("/auth/sessions/revoke-others", requireSession, (c) => {
     const session = c.get("session");
+    if (!sessions.enumerable) return c.json({ error: "not_supported" }, 409);
     const n = sessions.destroyAllForUser(session.account, session.id);
     return c.json({ revoked: n });
   });

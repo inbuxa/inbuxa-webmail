@@ -47,6 +47,24 @@ function int(name: string, fallback: number): number {
 
 const isProd = process.env.NODE_ENV === "production";
 let appSecret = process.env.APP_SECRET ?? "";
+/*
+ * inbuxa K-W1: where sessions live. "memory" (the default) keeps them in this
+ * process, mirrored to SESSION_FILE when set. "cookie" seals the whole session
+ * into the cookie, so any replica can serve it and nothing is kept here --
+ * what running more than one webmail replica needs. Cookie mode signs in with
+ * OAuth only and can't list or end other sessions (see sessions.ts).
+ */
+const sessionBackend = (process.env.SESSION_BACKEND ?? "memory").trim().toLowerCase();
+if (sessionBackend !== "memory" && sessionBackend !== "cookie") {
+  throw new Error(`SESSION_BACKEND must be "memory" or "cookie", not "${sessionBackend}"`);
+}
+if (sessionBackend === "cookie" && (!appSecret || appSecret === "change-me")) {
+  // An ephemeral secret would differ on every replica, so each would refuse
+  // the others' cookies. Unlike memory mode there is no safe fallback.
+  throw new Error("SESSION_BACKEND=cookie needs APP_SECRET set, and the same on every replica");
+}
+/** Secrets that sealed cookies before APP_SECRET was rotated; they still open, never seal. */
+const appSecretPrevious = (process.env.APP_SECRET_PREVIOUS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 if (!appSecret || appSecret === "change-me") {
   if (isProd) {
     throw new Error("APP_SECRET must be set to a strong random value in production");
@@ -271,6 +289,12 @@ const stalwartServers = readStalwartServers();
  * registered exactly.
  */
 const oauthClientSecret = process.env.OAUTH_CLIENT_SECRET ?? "";
+if (sessionBackend === "cookie" && !oauthClientSecret) {
+  // A sealed password in a cookie can't be revoked: changing it would leave
+  // the old cookie working wherever it was copied. OAuth tokens are revoked
+  // by the server when the password changes.
+  throw new Error("SESSION_BACKEND=cookie signs in with OAuth only: set OAUTH_CLIENT_SECRET");
+}
 const publicUrl = process.env.PUBLIC_URL ? httpUrl(process.env.PUBLIC_URL, "PUBLIC_URL") : "";
 if (oauthClientSecret && !publicUrl) {
   throw new Error("OAUTH_CLIENT_SECRET is set but PUBLIC_URL is not: the sign-in redirect needs ihasmail's public address");
@@ -352,6 +376,8 @@ export const config = {
   oauthClientId: env("OAUTH_CLIENT_ID", "ihasmail-inbuxa"),
   publicUrl,
   appSecret,
+  appSecretPrevious,
+  sessionBackend: sessionBackend as "memory" | "cookie",
   trustProxy: bool("TRUST_PROXY", true),
   /**
    * Peers whose X-Forwarded-* headers are believed. Empty falls back to

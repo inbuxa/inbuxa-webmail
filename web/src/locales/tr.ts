@@ -237,6 +237,7 @@ export const catalog: Catalog = {
 		"Change this event?": "Bu etkinlik değiştirilsin mi?",
 		"Change your own password in {settings}.": "Kendi şifrenizi {settings} bölümünden değiştirin.",
 		"Changing your password signs out your other webmail sessions. Any app passwords keep working.": "Şifrenizi değiştirmek diğer webmail oturumlarınızı kapatır. Varsa uygulama şifreleriniz çalışmaya devam eder.",
+		"This webmail can't list your other sessions. Changing your password signs you out everywhere.": "Bu web postası diğer oturumlarınızı listeleyemez. Parolanızı değiştirmek her yerde oturumunuzu kapatır.",
 		"Check for new shares": "Yeni paylaşımları kontrol et",
 		"Checking what is still in this tenant…": "Bu kiracıda hâlâ nelerin bulunduğu kontrol ediliyor…",
 		"Choose a calendar": "Bir takvim seçin",

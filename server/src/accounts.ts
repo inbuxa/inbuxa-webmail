@@ -17,9 +17,17 @@ import type { UpstreamSession } from "./upstream.js";
 
 export const MAX_ACCOUNTS = 5;
 
-/** A session cookie's shape: `id.secret`, both base64url. Anything else is dropped. */
-const COOKIE_SHAPE = /^[A-Za-z0-9_-]{8,128}\.[A-Za-z0-9_-]{8,256}$/;
+/**
+ * A session cookie's shape: `id.secret`, both base64url, or a cookie-mode
+ * session `s1.<kid>.<sealed>` (sessions.ts). Anything else is dropped.
+ */
+const COOKIE_SHAPE = /^(?:[A-Za-z0-9_-]{8,128}\.[A-Za-z0-9_-]{8,256}|s1\.[A-Za-z0-9_-]{8}\.[A-Za-z0-9_-]{40,1500})$/;
 const SEP = "~";
+/**
+ * Browsers drop a cookie over about 4 KB. Cookie-mode sessions are several
+ * hundred bytes each, so the list stops before it would pass this.
+ */
+const MAX_OTHERS_BYTES = 3800;
 
 export function parseOthers(value: string | undefined): string[] {
   if (!value) return [];
@@ -35,7 +43,15 @@ export function parseOthers(value: string | undefined): string[] {
 }
 
 export function serializeOthers(cookies: string[]): string {
-  return cookies.filter((c) => COOKIE_SHAPE.test(c)).slice(0, MAX_ACCOUNTS - 1).join(SEP);
+  const out: string[] = [];
+  let bytes = 0;
+  for (const c of cookies.filter((c) => COOKIE_SHAPE.test(c)).slice(0, MAX_ACCOUNTS - 1)) {
+    const add = c.length + (out.length ? SEP.length : 0);
+    if (bytes + add > MAX_OTHERS_BYTES) break;
+    out.push(c);
+    bytes += add;
+  }
+  return out.join(SEP);
 }
 
 /**

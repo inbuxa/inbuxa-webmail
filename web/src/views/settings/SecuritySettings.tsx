@@ -43,7 +43,9 @@ export function SecuritySettings() {
   const logout = useSession((s) => s.logout);
   const appName = useAppName();
 
-  const load = () => apiFetch<{ current: string; sessions: SessionRow[] }>("/api/auth/sessions").then((r) => { setRows(r.sessions); setCurrent(r.current); }).catch(() => setRows([]));
+  /* inbuxa K-W1: false when sessions live in their cookies and can't be listed or ended from here. */
+  const [enumerable, setEnumerable] = useState(true);
+  const load = () => apiFetch<{ current: string; enumerable?: boolean; sessions: SessionRow[] }>("/api/auth/sessions").then((r) => { setRows(r.sessions); setCurrent(r.current); setEnumerable(r.enumerable !== false); }).catch(() => setRows([]));
 
   const loadSecurity = useCallback(async () => {
     try {
@@ -120,8 +122,9 @@ export function SecuritySettings() {
           </tbody>
         </table>
       )}
+      {!enumerable && <p className="hint">{t("This webmail can't list your other sessions. Changing your password signs you out everywhere.")}</p>}
       <div className="row mt-16">
-        <button className="btn" onClick={async () => { if (await confirmDialog({ title: t("Sign out other sessions?"), confirmLabel: t("Sign out others") })) { const r = await apiFetch<{ revoked: number }>("/api/auth/sessions/revoke-others", { method: "POST" }); toast.success(plural(r.revoked, { one: "Signed out {n} other session", other: "Signed out {n} other sessions" })); void load(); } }}>{t("Sign out all other sessions")}</button>
+        {enumerable && <button className="btn" onClick={async () => { if (await confirmDialog({ title: t("Sign out other sessions?"), confirmLabel: t("Sign out others") })) { const r = await apiFetch<{ revoked: number }>("/api/auth/sessions/revoke-others", { method: "POST" }); toast.success(plural(r.revoked, { one: "Signed out {n} other session", other: "Signed out {n} other sessions" })); void load(); } }}>{t("Sign out all other sessions")}</button>}
         <button className="btn btn-ghost" onClick={() => void logout()}>{t("Sign out here")}</button>
       </div>
     </div>
