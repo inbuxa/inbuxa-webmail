@@ -591,14 +591,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (refused) return c.redirect(`${basePath}/?account_error=${refused}`, 302);
     }
     try {
-      const { location, state } = await startSignIn({
+      const { location, cookie } = await startSignIn({
         username,
         base: upstreamFor(username),
         remember: c.req.query("remember") === "1",
         adding: front !== null,
         theme: signInTheme(c.req.query("theme")),
       });
-      setCookie(c, OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: "Lax", secure: isSecureRequest(c), path: `${basePath}/api/auth`, maxAge: 600 });
+      setCookie(c, OAUTH_STATE_COOKIE, cookie, { httpOnly: true, sameSite: "Lax", secure: isSecureRequest(c), path: `${basePath}/api/auth`, maxAge: 600 });
       return c.redirect(location, 302);
     } catch (err) {
       console.warn("[ihasmail] could not start sign-in:", failureReason(err));
@@ -608,7 +608,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   api.get("/auth/callback", async (c) => {
     if (!oauthEnabled()) return c.json({ error: "not_found" }, 404);
-    const boundState = getCookie(c, OAUTH_STATE_COOKIE);
+    const boundCookie = getCookie(c, OAUTH_STATE_COOKIE);
     deleteCookie(c, OAUTH_STATE_COOKIE, { path: `${basePath}/api/auth` });
     const fail = (code: string) => c.redirect(`${basePath}/?signin_error=${code}`, 302);
     const rateIp = rateLimitKey(clientIp(c));
@@ -619,7 +619,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!code || c.req.query("error")) return fail("cancelled");
     let result;
     try {
-      result = await finishSignIn({ state, boundState, code });
+      result = await finishSignIn({ state, boundCookie, code });
     } catch (err) {
       if (err instanceof SignInError) return fail(err.code);
       console.warn("[ihasmail] sign-in exchange failed:", failureReason(err));
