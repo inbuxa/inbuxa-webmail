@@ -953,6 +953,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Alle andere sessies uitloggen",
     "Signed in as": "Ingelogd als",
     "This is my own device": "Dit is mijn eigen apparaat",
+    "Stay signed in, and keep settings and recent addresses on this computer.": "Ingelogd blijven en instellingen en recente adressen op deze computer bewaren.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "Na 5 minuten inactiviteit uitgelogd, en er wordt niets op deze computer bewaard. Laat dit uitgevinkt op een gedeelde of openbare computer.",
     "this device": "dit apparaat",
     "Device": "Apparaat",
     "IP": "IP",

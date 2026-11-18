@@ -951,6 +951,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "退出所有其他会话",
     "Signed in as": "已登录为",
     "This is my own device": "这是我自己的设备",
+    "Stay signed in, and keep settings and recent addresses on this computer.": "保持登录，并在这台电脑上保存设置和最近使用的地址。",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "闲置 5 分钟后自动退出，且不会在这台电脑上保存任何内容。在共用或公共电脑上请不要勾选此项。",
     "this device": "当前设备",
     "Device": "设备",
     "IP": "IP",

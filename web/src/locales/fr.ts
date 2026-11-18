@@ -958,6 +958,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Déconnecter toutes les autres sessions",
     "Signed in as": "Connecté en tant que",
     "This is my own device": "Cet appareil est le mien",
+    "Stay signed in, and keep settings and recent addresses on this computer.": "Rester connecté et conserver les paramètres et les adresses récentes sur cet ordinateur.",
+    "Signed out after 5 minutes of inactivity, and nothing is kept on this computer. Leave this unticked on a shared or public one.": "Déconnexion après 5 minutes d'inactivité, et rien n'est conservé sur cet ordinateur. Laissez cette case décochée sur un ordinateur partagé ou public.",
     "this device": "cet appareil",
     "Device": "Appareil",
     "IP": "IP",
