@@ -43,7 +43,7 @@ import {
   revokeAppPassword,
 } from "./account.js";
 import { imageProxyHandler } from "./imageproxy.js";
-import { SignInError, finish as finishSignIn, needsRefresh, oauthEnabled, passwordConfirms, refreshTokens, singleServer, start as startSignIn, type TokenSet } from "./oauth.js";
+import { SignInError, finish as finishSignIn, needsRefresh, oauthEnabled, passwordConfirms, refreshTokens, revokeTokens, singleServer, start as startSignIn, type TokenSet } from "./oauth.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import { staticHandler } from "./static.js";
 import { mailNode, webmailNode } from "./nodes.js";
@@ -791,13 +791,24 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
+  // inbuxa K-W2: a signed-out session's tokens are revoked at the server, so
+  // a copy of its cookie stops working (with cookie sessions there is nothing
+  // here to delete)
+  const endSession = async (session: LiveSession) => {
+    sessions.destroy(session.id);
+    forgetUpstreamSession(session.id);
+    if (session.tokens) {
+      const revoked = await revokeTokens(upstreamFor(session.username), session.tokens);
+      if (!revoked && !sessions.enumerable) {
+        console.warn("[ihasmail] signed out, but the mail server didn't revoke the session's tokens; a copy of the cookie works until they expire");
+      }
+    }
+  };
+
   api.post("/auth/logout", async (c) => {
     const cookie = getCookie(c, config.cookieName);
     const session = sessions.resolve(cookie);
-    if (session) {
-      sessions.destroy(session.id);
-      forgetUpstreamSession(session.id);
-    }
+    if (session) await endSession(session);
     // inbuxa MA-B: only this account ends; the next one comes to the front
     const [next, ...rest] = liveOthers(c);
     if (next) {
@@ -813,11 +824,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   /* inbuxa MA-B: every account signed in here ends. */
   api.post("/auth/logout-all", async (c) => {
     const front = sessions.resolve(getCookie(c, config.cookieName));
-    for (const session of [front, ...liveOthers(c).map((o) => o.session)]) {
-      if (!session) continue;
-      sessions.destroy(session.id);
-      forgetUpstreamSession(session.id);
-    }
+    await Promise.all([front, ...liveOthers(c).map((o) => o.session)].filter((s): s is LiveSession => Boolean(s)).map(endSession));
     deleteCookie(c, config.cookieName, { path: cookiePath });
     deleteCookie(c, OTHERS_COOKIE, { path: cookiePath });
     return c.json({ ok: true });

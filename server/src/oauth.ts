@@ -18,10 +18,11 @@
  * Access tokens last an hour; `refreshTokens()` renews them before they run
  * out. A password change on the server revokes both tokens, which ends every
  * session holding them -- the safe result, and the one the web app is told
- * about.
+ * about. Signing out revokes them too (`revokeTokens()`), where the server
+ * offers RFC 7009 revocation, so a copy of the session cookie dies with it.
  *
  * Nothing here is taken from another client's implementation; the shapes are
- * RFC 6749, RFC 7636 and RFC 8414.
+ * RFC 6749, RFC 7636, RFC 7009 and RFC 8414.
  */
 import { createHash } from "node:crypto";
 import { config } from "./config.js";
@@ -38,6 +39,8 @@ export interface TokenSet {
 interface Metadata {
   authorizationEndpoint: string;
   tokenEndpoint: string;
+  /** RFC 7009; null on a server without it (inbuxa-server before 27.1). */
+  revocationEndpoint: string | null;
   scopes: string[];
 }
 
@@ -77,7 +80,7 @@ async function metadataFor(base: string): Promise<Metadata> {
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
   if (!res.ok) throw new UpstreamError(`OAuth metadata request failed (${res.status})`, 502);
-  const doc = (await res.json()) as { authorization_endpoint?: string; token_endpoint?: string; scopes_supported?: string[] };
+  const doc = (await res.json()) as { authorization_endpoint?: string; token_endpoint?: string; revocation_endpoint?: string; scopes_supported?: string[] };
   if (!doc.authorization_endpoint || !doc.token_endpoint) {
     throw new UpstreamError("The mail server's OAuth metadata has no authorization or token endpoint", 502);
   }
@@ -86,6 +89,7 @@ async function metadataFor(base: string): Promise<Metadata> {
     authorizationEndpoint: new URL(doc.authorization_endpoint, base).toString(),
     // Where this process goes, so the configured route, like every other call.
     tokenEndpoint: absoluteUpstream(doc.token_endpoint, base),
+    revocationEndpoint: doc.revocation_endpoint ? absoluteUpstream(doc.revocation_endpoint, base) : null,
     scopes: doc.scopes_supported ?? [],
   };
   metadataCache.set(base, { metadata, fetchedAt: Date.now() });
@@ -235,6 +239,42 @@ async function tokenRequest(endpoint: string, fields: Record<string, string>): P
     refresh: body.refresh_token ?? null,
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
   };
+}
+
+/**
+ * K-W2: revoke a signed-out session's tokens at the server, refresh token
+ * first so no new access token can be minted while the access token goes.
+ * With cookie sessions there is nothing here to delete, so this is what
+ * makes a copy of the cookie stop working.
+ *
+ * Returns whether both were revoked: false on a server without RFC 7009, or
+ * one that couldn't be reached. Signing out never waits on more than that,
+ * and never fails because of it.
+ */
+export async function revokeTokens(base: string, tokens: TokenSet): Promise<boolean> {
+  let endpoint: string | null;
+  try {
+    endpoint = (await metadataFor(base)).revocationEndpoint;
+  } catch {
+    return false;
+  }
+  if (!endpoint) return false;
+  const revoke = async (token: string, hint: string) => {
+    try {
+      const res = await fetch(endpoint!, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+        body: new URLSearchParams({ token, token_type_hint: hint, client_id: config.oauthClientId, client_secret: config.oauthClientSecret }),
+        signal: AbortSignal.timeout(config.upstreamTimeout),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+  const refreshed = tokens.refresh ? await revoke(tokens.refresh, "refresh_token") : true;
+  const accessed = await revoke(tokens.access, "access_token");
+  return refreshed && accessed;
 }
 
 export function needsRefresh(tokens: TokenSet, now = Date.now()): boolean {
