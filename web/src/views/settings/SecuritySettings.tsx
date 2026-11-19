@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAppName } from "@/lib/brand";
-import { Copy, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
+import { Copy, Fingerprint, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { apiFetch, ApiError, legacyProtocolsOff, legacyProtocolsPartlyOff } from "@/jmap/client";
 import { useSession } from "@/store/session";
 import { formatFullDate } from "@/lib/format";
@@ -8,6 +8,7 @@ import { toast } from "@/ui/toast";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { plural, t, tNode } from "@/lib/i18n";
 import { SIGNIN_NOTICE_KEY } from "@/views/Login";
+import { listPasskeys, removePasskey, renamePasskey, startPasskey, type Passkey } from "@/lib/passkeys";
 
 interface SessionRow {
   id: string;
@@ -84,6 +85,8 @@ export function SecuritySettings() {
           <TwoFactorOff reload={async () => { await loadSecurity(); await load(); }} />
         </>
       )}
+
+      {session?.ihasmail?.signIn === "oauth" && accountId && <Passkeys accountId={accountId} />}
 
       <h2>{t("App passwords")}</h2>
       {legacyProtocolsOff(session, accountId) && (
@@ -365,6 +368,141 @@ function AppPasswords({ state, reload }: { state: SecurityState | null; reload: 
         )}
       </Dialog>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * inbuxa #334: the account's passkeys. Only with sign-in on the mail
+ * server's page, the one place a passkey can be used; hidden when the server
+ * has no passkeys. Adding one runs on the server's own page in a new window,
+ * because a passkey is bound to the server's name, not this webmail's.
+ */
+export function Passkeys({ accountId }: { accountId: string }) {
+  const [rows, setRows] = useState<Passkey[] | null | undefined>(undefined);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [renaming, setRenaming] = useState<Passkey | null>(null);
+  const [newName, setNewName] = useState("");
+
+  const reload = useCallback(async () => setRows(await listPasskeys(accountId)), [accountId]);
+  useEffect(() => { void reload(); }, [reload]);
+
+  if (rows === null) return null;
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Opened before the request so the browser treats it as the click's window, not a pop-up.
+    const win = window.open("", "_blank");
+    setBusy(true);
+    try {
+      const url = await startPasskey(accountId, name.trim());
+      setName("");
+      if (win) {
+        win.opener = null;
+        win.location.href = url;
+        setWaiting(true);
+        const timer = window.setInterval(() => {
+          if (win.closed) {
+            window.clearInterval(timer);
+            setWaiting(false);
+            void reload();
+          }
+        }, 1000);
+      } else {
+        window.location.assign(url);
+      }
+      await reload();
+    } catch (err) {
+      win?.close();
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (row: Passkey) => {
+    const ok = await confirmDialog({
+      title: t("Remove “{name}”?", { name: row.name }),
+      message: t("You can't sign in with it any more. Removing a passkey signs you out everywhere, here included."),
+      confirmLabel: t("Remove"),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await removePasskey(accountId, row.id);
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    }
+    await signedOutBy("signed_out");
+  };
+
+  const rename = async () => {
+    if (!renaming) return;
+    try {
+      await renamePasskey(accountId, renaming.id, newName.trim());
+      setRenaming(null);
+      await reload();
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  return (
+    <>
+      <h2>{t("Passkeys")}</h2>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t("Sign in with your fingerprint, face or device PIN instead of your password. Passkeys work for signing in here; mail apps still use your password or an app password.")}
+      </p>
+      {rows === undefined ? <p className="hint">{t("Loading…")}</p> : rows.length > 0 && (
+        <table className="sessions-table">
+          <thead><tr><th>{t("Name")}</th><th>{t("Added")}</th><th>{t("Last used")}</th><th /></tr></thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <Fingerprint size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />{row.name}
+                  {row.state === "pending" && <span className="badge" style={{ marginLeft: 6 }}>{t("not finished")}</span>}
+                  {row.state === "active" && !row.usable && <span className="badge" style={{ marginLeft: 6 }}>{t("needs re-adding")}</span>}
+                  {row.state === "active" && row.usable && row.backedUp && <span className="badge" style={{ marginLeft: 6 }}>{t("synced")}</span>}
+                </td>
+                <td>{row.createdAt ? formatFullDate(row.createdAt) : "—"}</td>
+                <td>{row.lastUsedAt ? formatFullDate(row.lastUsedAt) : t("Never")}</td>
+                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                  {row.state === "active" && <button className="btn btn-sm btn-ghost" onClick={() => { setRenaming(row); setNewName(row.name); }}>{t("Rename")}</button>}
+                  <button className="btn btn-sm btn-ghost" onClick={() => void remove(row)}>{t("Remove")}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {rows?.some((r) => r.state === "active" && !r.usable) && (
+        <p className="hint mt-8">{t("A passkey marked “needs re-adding” was added for the mail server's old name. Add a new one, then remove the old one.")}</p>
+      )}
+      <form onSubmit={add} className="row mt-16" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div className="field" style={{ marginBottom: 0, minWidth: 240 }}>
+          <label htmlFor="pk-name">{t("New passkey name")}</label>
+          <input id="pk-name" value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder={t("Phone or security key")} required />
+        </div>
+        <button className="btn" disabled={busy || !name.trim()}>{busy ? t("Opening…") : t("Add a passkey")}</button>
+      </form>
+      {waiting && <p className="hint mt-8">{t("Finish adding the passkey in the window that opened. The page there works for 10 minutes.")}</p>}
+
+      <Dialog open={Boolean(renaming)} onClose={() => setRenaming(null)} title={t("Rename passkey")} size="sm"
+        footer={<>
+          <button className="btn btn-ghost" onClick={() => setRenaming(null)}>{t("Cancel")}</button>
+          <button className="btn btn-primary" disabled={!newName.trim()} onClick={() => void rename()}>{t("Save")}</button>
+        </>}>
+        <div className="field">
+          <label htmlFor="pk-rename">{t("Name")}</label>
+          <input id="pk-rename" value={newName} maxLength={64} onChange={(e) => setNewName(e.target.value)} />
+        </div>
+      </Dialog>
+    </>
   );
 }
 
