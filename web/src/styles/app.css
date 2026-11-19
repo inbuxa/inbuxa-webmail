@@ -2254,6 +2254,14 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   */
   .topbar { padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); gap: 4px; }
   .topbar .brand .brand-name { display: none; }
+  /*
+    inbuxa-webmail #124: an administrator's wide wordmark asked for its full
+    180px, the image wouldn't shrink below that (a flex item's min-width is
+    its own width), and the search field painted over the rest of it. On a
+    phone it's capped by the screen instead and scaled down whole, kept to
+    the left; a square logo is under the cap and doesn't change.
+  */
+  .topbar .brand img.server-logo { min-width: 0; max-width: 30vw; object-position: left center; }
   .searchbar .search-input { height: 40px; }
   /*
     On a phone the search field is only what's left between the menu, logo
