@@ -49,6 +49,7 @@ import { icsProxyHandler } from "./icsproxy.js";
 import { staticHandler } from "./static.js";
 import { mailNode, webmailNode } from "./nodes.js";
 import { ADD_REFUSED, MAX_ACCOUNTS, mayAddAccounts, parseOthers, serializeOthers } from "./accounts.js";
+import { upstreamFetch, withClientIp } from "./clientcontext.js";
 
 type Env = { Variables: { session: LiveSession } };
 
@@ -429,7 +430,7 @@ async function inboxUnread(session: LiveSession): Promise<number | null> {
   const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
   const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
   if (!accountId) return null;
-  const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
+  const res = await upstreamFetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
     method: "POST",
     headers: { authorization: session.authorization, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
@@ -518,6 +519,8 @@ function upstreamFailure(c: Context, err: unknown) {
  */
 export function createApp(basePath = config.basePath): Hono<Env> {
   const app = new Hono<Env>();
+  // The browser's address, for the mail server (clientcontext.ts)
+  app.use("*", (c, next) => withClientIp(clientIp(c), next));
   app.use("*", securityHeaders);
   app.use("*", compressResponses(basePath));
 
@@ -920,7 +923,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!session) return c.json({ error: "unauthenticated" }, 401);
     try {
       const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
+      const res = await upstreamFetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
         method: "POST",
         headers: { authorization: session.authorization, "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({ using, methodCalls: calls }),
@@ -1227,7 +1230,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     try {
       const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
+      const res = await upstreamFetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
         method: "POST",
         headers: {
           authorization: session.authorization,
@@ -1286,7 +1289,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
       const url = absoluteUpstream(expandTemplate(upstream.uploadUrl, { accountId }), upstream.baseUrl);
-      const res = await fetch(url, {
+      const res = await upstreamFetch(url, {
         method: "POST",
         headers: {
           authorization: session.authorization,
@@ -1315,7 +1318,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // A PDF viewer or a video element asks for pieces; pass that on. A server
       // that ignores it answers with the whole file, as it did before.
       const range = c.req.header("range");
-      const res = await fetch(url, {
+      const res = await upstreamFetch(url, {
         // Ask for the bytes as they are. undici would otherwise negotiate gzip
         // on our behalf and hand back a decompressed body whose content-length
         // header still describes the compressed one -- see forwardedContentLength.
@@ -1398,7 +1401,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (config.rawPushRelay) return relayPushRaw(c, url, session.authorization, session.username);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
-      const upstreamRes = fetch(url, {
+      const upstreamRes = upstreamFetch(url, {
         headers: { authorization: session.authorization, accept: "text/event-stream" },
         signal: controller.signal,
       });

@@ -1,5 +1,6 @@
 import { gunzipSync } from "node:zlib";
 import { config } from "./config.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 /**
  * Stalwart's list of permissions, for the Roles screen's picker.
@@ -52,7 +53,7 @@ export function parseSchemaBody(bytes: Uint8Array): unknown {
 export async function fetchPermissions(authorization: string, baseUrl: string): Promise<PermissionInfo[] | null> {
   const hit = cache.get(baseUrl);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.list;
-  const res = await fetch(`${baseUrl}/api/schema`, {
+  const res = await upstreamFetch(`${baseUrl}/api/schema`, {
     headers: { authorization, accept: "application/json" },
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });

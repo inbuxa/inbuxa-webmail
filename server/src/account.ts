@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { absoluteUpstream, UpstreamError, type UpstreamSession } from "./upstream.js";
 import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 /**
  * Self-service credential management, over Stalwart's JMAP registry:
@@ -65,7 +66,7 @@ function accountId(ctx: Ctx): string {
 type Invocation = [string, Record<string, unknown>, string];
 
 async function jmap(ctx: Ctx, methodCalls: Invocation[]): Promise<{ methodResponses?: [string, unknown, string][] }> {
-  const res = await fetch(absoluteUpstream(ctx.session.apiUrl, ctx.session.baseUrl), {
+  const res = await upstreamFetch(absoluteUpstream(ctx.session.apiUrl, ctx.session.baseUrl), {
     method: "POST",
     headers: { authorization: ctx.authorization, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ using: [JMAP_CORE, STALWART_CAP], methodCalls }),

@@ -65,6 +65,31 @@ trailing newline is dropped. The webmail won't start if both forms are set, or
 if the file can't be read or is empty. The error names the variable and the
 file, never the secret.
 
+### Several replicas
+
+The webmail's own limits count per replica: `LOGIN_RATE_LIMIT` on password
+sign-ins (memory mode only), twenty times that on starting and finishing a
+sign-in through the server, `API_RATE_LIMIT` per session, and the limit on
+password changes. With several replicas behind a load balancer, a client can
+get up to that many times each. They are a first line, nothing more.
+
+The limits that hold across replicas are the mail server's. With
+`SESSION_BACKEND=cookie` people type their password on the server's own
+page, never the webmail's. The server counts failed sign-ins per address and
+per account name across all of its nodes, and bans an address after too many
+(inbuxa: 100 a day by default). It also limits requests that aren't signed in
+yet, including the first use of each new token, per address.
+
+For those to count people rather than the webmail, the webmail tells the
+server who each request is for: it sends `X-Forwarded-For` with the client
+address it worked out (with `TRUSTED_PROXIES`), replacing any the browser
+sent. The server has to believe it, from the webmail and from your ingress.
+On inbuxa that means both connect from trusted proxies (private addresses by
+default, or `INBUXA_HTTP_TRUSTED_PROXIES`) and `INBUXA_HTTP_USE_FORWARDED=true`
+is set, or "Use X-Forwarded-For" is on in the console. The Helm chart does
+this. Without it, the server sees all of a replica's users as one address,
+and enough wrong passwords between them ban it for everyone.
+
 ### Read-only root filesystem
 
 The image runs with a read-only root. The only thing it writes is
