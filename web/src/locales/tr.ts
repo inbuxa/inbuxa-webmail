@@ -1711,6 +1711,8 @@ export const catalog: Catalog = {
 		"Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Geçiş anahtarını eklemeyi açılan pencerede tamamlayın. Oradaki sayfa 10 dakika geçerlidir.",
 		"Rename passkey": "Geçiş anahtarını yeniden adlandır",
 		"Passkeys are turned off for this account.": "Bu hesap için geçiş anahtarları kapalı.",
+		"Passkeys aren't available for this account. Ask your mail administrator if you need them.": "Bu hesap için geçiş anahtarları kullanılamıyor. Gerekirse e-posta yöneticinize başvurun.",
+		"Couldn't load your passkeys.": "Geçiş anahtarlarınız yüklenemedi.",
 		"This account has as many passkeys as it's allowed. Remove one to add another.": "Bu hesapta izin verilen sayıda geçiş anahtarı var. Başka bir tane eklemek için birini kaldırın.",
 		"Couldn't add the passkey.": "Geçiş anahtarı eklenemedi.",
 		"The server didn't return a page to add the passkey on.": "Sunucu, geçiş anahtarını eklemek için bir sayfa döndürmedi.",

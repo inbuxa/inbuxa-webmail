@@ -1860,6 +1860,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Schließen Sie das Hinzufügen des Passkeys im geöffneten Fenster ab. Die Seite dort ist 10 Minuten gültig.",
     "Rename passkey": "Passkey umbenennen",
     "Passkeys are turned off for this account.": "Passkeys sind für dieses Konto deaktiviert.",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "Passkeys sind für dieses Konto nicht verfügbar. Wenden Sie sich an Ihren E-Mail-Administrator, wenn Sie sie benötigen.",
+    "Couldn't load your passkeys.": "Ihre Passkeys konnten nicht geladen werden.",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "Dieses Konto hat bereits so viele Passkeys wie erlaubt. Entfernen Sie einen, um einen weiteren hinzuzufügen.",
     "Couldn't add the passkey.": "Der Passkey konnte nicht hinzugefügt werden.",
     "The server didn't return a page to add the passkey on.": "Der Server hat keine Seite zum Hinzufügen des Passkeys zurückgegeben.",

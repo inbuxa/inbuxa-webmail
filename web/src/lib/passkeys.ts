@@ -1,4 +1,4 @@
-import { client, INBUXA_CAP } from "@/jmap/client";
+import { ApiError, client, INBUXA_CAP, JmapMethodError } from "@/jmap/client";
 import type { Id, JmapSession } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 
@@ -45,19 +45,38 @@ function parse(raw: Record<string, unknown>): Passkey {
 }
 
 /**
- * The account's passkeys, newest first; null when the server has no passkeys
- * (not inbuxa, or older than the feature), so the section stays hidden.
+ * What listing the account's passkeys found (#119): the passkeys; `none`
+ * when the server has no passkeys (not inbuxa, or older than the feature),
+ * so the section stays hidden; `forbidden` when the server has them but
+ * won't let this account use them; `failed` for anything else, with the
+ * reason, so the reader can try again.
  */
-export async function listPasskeys(accountId: string): Promise<Passkey[] | null> {
+export type PasskeyListing =
+  | { kind: "list"; rows: Passkey[] }
+  | { kind: "none" }
+  | { kind: "forbidden" }
+  | { kind: "failed"; message: string };
+
+/** Errors that mean the server doesn't have passkeys at all. */
+const NO_PASSKEYS = new Set(["unknownMethod", "unknownCapability", "urn:ietf:params:jmap:error:unknownCapability"]);
+
+/** The account's passkeys, newest first, or why there are none to show. */
+export async function listPasskeys(accountId: string): Promise<PasskeyListing> {
   try {
     const res = await client.call<{ list?: Record<string, unknown>[] }>(
       "inbuxa:Passkey/get",
       { accountId, ids: null, properties: PROPERTIES },
       [INBUXA_CAP],
     );
-    return (res.list ?? []).map(parse).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-  } catch {
-    return null;
+    const rows = (res.list ?? []).map(parse).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+    return { kind: "list", rows };
+  } catch (err) {
+    if (err instanceof JmapMethodError) {
+      if (NO_PASSKEYS.has(err.type)) return { kind: "none" };
+      if (err.type === "forbidden") return { kind: "forbidden" };
+    }
+    if (err instanceof ApiError && NO_PASSKEYS.has(err.code)) return { kind: "none" };
+    return { kind: "failed", message: (err as Error)?.message || t("Couldn't load your passkeys.") };
   }
 }
 

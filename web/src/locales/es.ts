@@ -1833,6 +1833,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Termine de añadir la llave de acceso en la ventana que se abrió. La página funciona durante 10 minutos.",
     "Rename passkey": "Renombrar llave de acceso",
     "Passkeys are turned off for this account.": "Las llaves de acceso están desactivadas para esta cuenta.",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "Las llaves de acceso no están disponibles para esta cuenta. Pide a tu administrador de correo que las active si las necesitas.",
+    "Couldn't load your passkeys.": "No se pudieron cargar tus llaves de acceso.",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "Esta cuenta ya tiene todas las llaves de acceso permitidas. Quite una para añadir otra.",
     "Couldn't add the passkey.": "No se pudo añadir la llave de acceso.",
     "The server didn't return a page to add the passkey on.": "El servidor no devolvió ninguna página para añadir la llave de acceso.",
