@@ -8,7 +8,7 @@ import { toast } from "@/ui/toast";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { plural, t, tNode } from "@/lib/i18n";
 import { SIGNIN_NOTICE_KEY } from "@/views/Login";
-import { listPasskeys, removePasskey, renamePasskey, startPasskey, type Passkey } from "@/lib/passkeys";
+import { addErrorMessage, listPasskeys, passkeyPolicy, removePasskey, renamePasskey, startPasskey, type Passkey } from "@/lib/passkeys";
 
 interface SessionRow {
   id: string;
@@ -86,7 +86,7 @@ export function SecuritySettings() {
         </>
       )}
 
-      {session?.ihasmail?.signIn === "oauth" && accountId && <Passkeys accountId={accountId} />}
+      {session?.ihasmail?.signIn === "oauth" && accountId && <Passkeys accountId={accountId} {...passkeyPolicy(session, accountId)} />}
 
       <h2>{t("App passwords")}</h2>
       {legacyProtocolsOff(session, accountId) && (
@@ -379,7 +379,7 @@ function AppPasswords({ state, reload }: { state: SecurityState | null; reload: 
  * has no passkeys. Adding one runs on the server's own page in a new window,
  * because a passkey is bound to the server's name, not this webmail's.
  */
-export function Passkeys({ accountId }: { accountId: string }) {
+export function Passkeys({ accountId, allowed, max }: { accountId: string; allowed?: boolean; max?: number }) {
   const [rows, setRows] = useState<Passkey[] | null | undefined>(undefined);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -483,6 +483,12 @@ export function Passkeys({ accountId }: { accountId: string }) {
       {rows?.some((r) => r.state === "active" && !r.usable) && (
         <p className="hint mt-8">{t("A passkey marked “needs re-adding” was added for the mail server's old name. Add a new one, then remove the old one.")}</p>
       )}
+      {/* PK-19: say up front when the server would refuse the add */}
+      {allowed === false ? (
+        <p className="info-box mt-16">{addErrorMessage({ type: "forbidden" })}</p>
+      ) : max !== undefined && rows !== undefined && rows.length >= max ? (
+        <p className="info-box mt-16">{addErrorMessage({ type: "overQuota" })}</p>
+      ) : (
       <form onSubmit={add} className="row mt-16" style={{ gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div className="field" style={{ marginBottom: 0, minWidth: 240 }}>
           <label htmlFor="pk-name">{t("New passkey name")}</label>
@@ -490,6 +496,7 @@ export function Passkeys({ accountId }: { accountId: string }) {
         </div>
         <button className="btn" disabled={busy || !name.trim()}>{busy ? t("Opening…") : t("Add a passkey")}</button>
       </form>
+      )}
       {waiting && <p className="hint mt-8">{t("Finish adding the passkey in the window that opened. The page there works for 10 minutes.")}</p>}
 
       <Dialog open={Boolean(renaming)} onClose={() => setRenaming(null)} title={t("Rename passkey")} size="sm"
