@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { secretEnv } from "./secretenv.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
@@ -46,7 +47,7 @@ function int(name: string, fallback: number): number {
 }
 
 const isProd = process.env.NODE_ENV === "production";
-let appSecret = process.env.APP_SECRET ?? "";
+let appSecret = secretEnv("APP_SECRET");
 /*
  * inbuxa K-W1: where sessions live. "memory" (the default) keeps them in this
  * process, mirrored to SESSION_FILE when set. "cookie" seals the whole session
@@ -61,10 +62,10 @@ if (sessionBackend !== "memory" && sessionBackend !== "cookie") {
 if (sessionBackend === "cookie" && (!appSecret || appSecret === "change-me")) {
   // An ephemeral secret would differ on every replica, so each would refuse
   // the others' cookies. Unlike memory mode there is no safe fallback.
-  throw new Error("SESSION_BACKEND=cookie needs APP_SECRET set, and the same on every replica");
+  throw new Error("SESSION_BACKEND=cookie needs APP_SECRET (or APP_SECRET_FILE) set, and the same on every replica");
 }
 /** Secrets that sealed cookies before APP_SECRET was rotated; they still open, never seal. */
-const appSecretPrevious = (process.env.APP_SECRET_PREVIOUS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const appSecretPrevious = secretEnv("APP_SECRET_PREVIOUS").split(",").map((s) => s.trim()).filter(Boolean);
 if (!appSecret || appSecret === "change-me") {
   if (isProd) {
     throw new Error("APP_SECRET must be set to a strong random value in production");
@@ -288,12 +289,12 @@ const stalwartServers = readStalwartServers();
  * without BASE_PATH; the redirect URI is built from it and must match the one
  * registered exactly.
  */
-const oauthClientSecret = process.env.OAUTH_CLIENT_SECRET ?? "";
+const oauthClientSecret = secretEnv("OAUTH_CLIENT_SECRET");
 if (sessionBackend === "cookie" && !oauthClientSecret) {
   // A sealed password in a cookie can't be revoked: changing it would leave
   // the old cookie working wherever it was copied. OAuth tokens are revoked
   // by the server when the password changes.
-  throw new Error("SESSION_BACKEND=cookie signs in with OAuth only: set OAUTH_CLIENT_SECRET");
+  throw new Error("SESSION_BACKEND=cookie signs in with OAuth only: set OAUTH_CLIENT_SECRET (or OAUTH_CLIENT_SECRET_FILE)");
 }
 const publicUrl = process.env.PUBLIC_URL ? httpUrl(process.env.PUBLIC_URL, "PUBLIC_URL") : "";
 if (oauthClientSecret && !publicUrl) {
