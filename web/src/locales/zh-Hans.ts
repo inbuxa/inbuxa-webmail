@@ -857,6 +857,7 @@ export const catalog: Catalog = {
     "connected": "已连接",
     "reconnecting…": "正在重新连接…",
     "AGPL-3.0 source": "AGPL-3.0 源代码",
+    "Powered by {product} v{version}": "由 {product} v{version} 提供支持",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "发件身份与签名",

@@ -861,6 +861,7 @@ export const catalog: Catalog = {
     "connected": "conectado",
     "reconnecting…": "reconectando…",
     "AGPL-3.0 source": "Código-fonte AGPL-3.0",
+    "Powered by {product} v{version}": "Desenvolvido com {product} v{version}",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "Identidades e assinaturas",

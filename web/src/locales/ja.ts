@@ -858,6 +858,7 @@ export const catalog: Catalog = {
     "connected": "接続済み",
     "reconnecting…": "再接続中…",
     "AGPL-3.0 source": "AGPL-3.0 ソース",
+    "Powered by {product} v{version}": "{product} v{version} で動作",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "差出人と署名",

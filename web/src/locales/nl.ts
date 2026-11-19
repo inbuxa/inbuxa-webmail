@@ -859,6 +859,7 @@ export const catalog: Catalog = {
     "connected": "verbonden",
     "reconnecting…": "opnieuw verbinden…",
     "AGPL-3.0 source": "AGPL-3.0 broncode",
+    "Powered by {product} v{version}": "Mogelijk gemaakt door {product} v{version}",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "Identiteiten en handtekeningen",

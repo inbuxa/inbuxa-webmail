@@ -8,7 +8,7 @@ import { APP_VERSION } from "@/lib/version";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { DEFAULT_APP_NAME, brandImage } from "@/lib/brand";
 import { useServerLogo } from "@/lib/serverLogo";
-import { t } from "@/lib/i18n";
+import { t, tNode } from "@/lib/i18n";
 import { InbuxaWordmark } from "@/ui/InbuxaWordmark";
 
 export function LoginPage() {
@@ -110,10 +110,26 @@ export function LoginPage() {
             />
           )}
           {/* A product name, not a word: not translated, and not guessed at
-              from the page it is on. INBUXA's is its wordmark. */}
-          <h1 className="notranslate" translate="no">
-            {appName === DEFAULT_APP_NAME ? <InbuxaWordmark height={34} /> : appName}
-          </h1>
+              from the page it is on. INBUXA's is its wordmark.
+
+              Under an administrator's own logo the wordmark is a second logo
+              fighting the first for the card (#122), so it goes, and inbuxa
+              is credited in the footer instead. The heading stays for screen
+              readers. A name the administrator set themselves stays: they
+              chose to show it. While the logo is still being asked for, the
+              wordmark is held unseen like the image above, so it doesn't
+              flash up and vanish. */}
+          {appName === DEFAULT_APP_NAME && serverLogo.status === "custom" ? (
+            <h1 className="sr-only notranslate" translate="no">{appName}</h1>
+          ) : (
+            <h1
+              className="notranslate"
+              translate="no"
+              style={appName === DEFAULT_APP_NAME && serverLogo.status === "loading" ? { visibility: "hidden" } : undefined}
+            >
+              {appName === DEFAULT_APP_NAME ? <InbuxaWordmark height={34} /> : appName}
+            </h1>
+          )}
           <p className="tagline">{t("Fast, friendly webmail. Your mailbox, your way.")}</p>
         </div>
         {error && (
@@ -178,12 +194,36 @@ export function LoginPage() {
             One <p> with a break rather than two: .foot carries a 20px
             margin-top, which a second paragraph would repeat as a gap.
           */}
-          {/* ihasmail-inbuxa: this build is INBUXA's webmail, and its site is INBUXA's. */}
-          <span className="notranslate" translate="no">inbuxa webmail v{APP_VERSION}</span>
-          <br />
-          <a href="https://inbuxa.org" target="_blank" rel="noopener noreferrer" className="notranslate" translate="no">inbuxa.org</a>
-          {" · "}
-          <a href={sourceUrl} target="_blank" rel="noopener noreferrer">{t("AGPL-3.0 source")}</a>
+          {/* ihasmail-inbuxa: this build is INBUXA's webmail, and its site is INBUXA's.
+              Under an administrator's own logo the footer is where inbuxa is
+              credited (#122): "Powered by", with the name as the link to
+              inbuxa.org, reads as what it is; a bare "inbuxa.org" under
+              somebody else's logo read as a stray URL. */}
+          {serverLogo.status === "custom" ? (
+            <>
+              {tNode(
+                "Powered by {product} v{version}",
+                {
+                  product: (
+                    <a href="https://inbuxa.org" target="_blank" rel="noopener noreferrer" className="notranslate" translate="no">
+                      inbuxa Webmail
+                    </a>
+                  ),
+                },
+                { version: APP_VERSION },
+              )}
+              <br />
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">{t("AGPL-3.0 source")}</a>
+            </>
+          ) : (
+            <>
+              <span className="notranslate" translate="no">inbuxa Webmail v{APP_VERSION}</span>
+              <br />
+              <a href="https://inbuxa.org" target="_blank" rel="noopener noreferrer" className="notranslate" translate="no">inbuxa.org</a>
+              {" · "}
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer">{t("AGPL-3.0 source")}</a>
+            </>
+          )}
         </p>
       </form>
     </div>
