@@ -1829,6 +1829,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Завершіть додавання ключа доступу у вікні, що відкрилося. Сторінка там діє 10 хвилин.",
     "Rename passkey": "Перейменувати ключ доступу",
     "Passkeys are turned off for this account.": "Ключі доступу вимкнено для цього облікового запису.",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "Ключі доступу недоступні для цього облікового запису. Якщо вони вам потрібні, зверніться до адміністратора пошти.",
+    "Couldn't load your passkeys.": "Не вдалося завантажити ваші ключі доступу.",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "Цей обліковий запис уже має максимальну кількість ключів доступу. Видаліть один, щоб додати інший.",
     "Couldn't add the passkey.": "Не вдалося додати ключ доступу.",
     "The server didn't return a page to add the passkey on.": "Сервер не повернув сторінку для додавання ключа доступу.",

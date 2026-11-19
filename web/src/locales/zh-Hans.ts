@@ -1840,6 +1840,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "请在打开的窗口中完成添加通行密钥。该页面 10 分钟内有效。",
     "Rename passkey": "重命名通行密钥",
     "Passkeys are turned off for this account.": "此账户已关闭通行密钥。",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "此账户无法使用通行密钥。如需使用，请联系您的邮件管理员。",
+    "Couldn't load your passkeys.": "无法加载您的通行密钥。",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "此账户的通行密钥已达上限。删除一个后才能添加新的。",
     "Couldn't add the passkey.": "无法添加通行密钥。",
     "The server didn't return a page to add the passkey on.": "服务器没有返回用于添加通行密钥的页面。",

@@ -8,7 +8,7 @@ import { toast } from "@/ui/toast";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { plural, t, tNode } from "@/lib/i18n";
 import { SIGNIN_NOTICE_KEY } from "@/views/Login";
-import { addErrorMessage, listPasskeys, passkeyPolicy, removePasskey, renamePasskey, startPasskey, type Passkey } from "@/lib/passkeys";
+import { addErrorMessage, listPasskeys, passkeyPolicy, removePasskey, renamePasskey, startPasskey, type Passkey, type PasskeyListing } from "@/lib/passkeys";
 
 interface SessionRow {
   id: string;
@@ -375,22 +375,40 @@ function AppPasswords({ state, reload }: { state: SecurityState | null; reload: 
 
 /**
  * inbuxa #334: the account's passkeys. Only with sign-in on the mail
- * server's page, the one place a passkey can be used; hidden when the server
- * has no passkeys. Adding one runs on the server's own page in a new window,
+ * server's page, the one place a passkey can be used; hidden only when the
+ * server has no passkeys, and otherwise says why it can't list them (#119). Adding one runs on the server's own page in a new window,
  * because a passkey is bound to the server's name, not this webmail's.
  */
 export function Passkeys({ accountId, allowed, max }: { accountId: string; allowed?: boolean; max?: number }) {
-  const [rows, setRows] = useState<Passkey[] | null | undefined>(undefined);
+  const [listing, setListing] = useState<PasskeyListing | undefined>(undefined);
+  const rows = listing?.kind === "list" ? listing.rows : undefined;
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [renaming, setRenaming] = useState<Passkey | null>(null);
   const [newName, setNewName] = useState("");
 
-  const reload = useCallback(async () => setRows(await listPasskeys(accountId)), [accountId]);
+  const reload = useCallback(async () => setListing(await listPasskeys(accountId)), [accountId]);
   useEffect(() => { void reload(); }, [reload]);
 
-  if (rows === null) return null;
+  if (listing?.kind === "none") return null;
+  // #119: the server has passkeys but this account can't use them, or the
+  // list didn't load: say so, rather than the section disappearing
+  if (listing?.kind === "forbidden" || listing?.kind === "failed") {
+    return (
+      <>
+        <h2>{t("Passkeys")}</h2>
+        {listing.kind === "forbidden" ? (
+          <p className="info-box">{t("Passkeys aren't available for this account. Ask your mail administrator if you need them.")}</p>
+        ) : (
+          <div className="info-box row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ flex: 1 }}>{t("Couldn't load your passkeys.")} <span className="hint">{listing.message}</span></span>
+            <button className="btn btn-sm" onClick={() => { setListing(undefined); void reload(); }}>{t("Retry")}</button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,7 +475,7 @@ export function Passkeys({ accountId, allowed, max }: { accountId: string; allow
       <p className="hint" style={{ marginBottom: 12 }}>
         {t("Sign in with your fingerprint, face or device PIN instead of your password. Passkeys work for signing in here; mail apps still use your password or an app password.")}
       </p>
-      {rows === undefined ? <p className="hint">{t("Loading…")}</p> : rows.length > 0 && (
+      {listing === undefined ? <p className="hint">{t("Loading…")}</p> : rows && rows.length > 0 && (
         <table className="sessions-table">
           <thead><tr><th>{t("Name")}</th><th>{t("Added")}</th><th>{t("Last used")}</th><th /></tr></thead>
           <tbody>

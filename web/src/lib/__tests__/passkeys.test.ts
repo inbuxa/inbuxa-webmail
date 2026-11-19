@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const call = vi.fn();
-vi.mock("@/jmap/client", () => ({ client: { call: (...a: unknown[]) => call(...a) }, INBUXA_CAP: "urn:inbuxa:jmap" }));
+vi.mock("@/jmap/client", async (importActual) => {
+  const actual = await importActual<typeof import("@/jmap/client")>();
+  return {
+    client: { call: (...a: unknown[]) => call(...a) },
+    INBUXA_CAP: "urn:inbuxa:jmap",
+    JmapMethodError: actual.JmapMethodError,
+    ApiError: actual.ApiError,
+  };
+});
 
 import { addErrorMessage, listPasskeys, passkeyPolicy, removePasskey, renamePasskey, startPasskey } from "@/lib/passkeys";
 import type { JmapSession } from "@/jmap/types";
+import { ApiError, JmapMethodError } from "@/jmap/client";
 
 describe("passkeys (#334)", () => {
   beforeEach(() => { call.mockReset(); });
@@ -18,13 +27,32 @@ describe("passkeys (#334)", () => {
     });
     const rows = await listPasskeys("acc");
     expect(call).toHaveBeenCalledWith("inbuxa:Passkey/get", expect.objectContaining({ accountId: "acc", ids: null }), ["urn:inbuxa:jmap"]);
-    expect(rows?.map((r) => r.id)).toEqual(["b", "a"]);
-    expect(rows?.[0]).toMatchObject({ usable: false, lastUsedAt: "2026-11-11T10:00:00Z" });
+    expect(rows.kind).toBe("list");
+    if (rows.kind !== "list") return;
+    expect(rows.rows.map((r) => r.id)).toEqual(["b", "a"]);
+    expect(rows.rows[0]).toMatchObject({ usable: false, lastUsedAt: "2026-11-11T10:00:00Z" });
   });
 
-  it("hides the section on a server without passkeys", async () => {
-    call.mockImplementation(async () => { throw new Error("unknownMethod"); });
-    expect(await listPasskeys("acc")).toBeNull();
+  it("hides the section only on a server without passkeys (#119)", async () => {
+    call.mockImplementation(async () => { throw new JmapMethodError("inbuxa:Passkey/get", { type: "unknownMethod" }); });
+    expect(await listPasskeys("acc")).toEqual({ kind: "none" });
+    call.mockImplementation(async () => { throw new ApiError(400, "urn:ietf:params:jmap:error:unknownCapability"); });
+    expect(await listPasskeys("acc")).toEqual({ kind: "none" });
+  });
+
+  it("says when the server won't let the account use passkeys (#119)", async () => {
+    call.mockImplementation(async () => {
+      throw new JmapMethodError("inbuxa:Passkey/get", { type: "forbidden", description: "You are not authorized to perform this action" });
+    });
+    expect(await listPasskeys("acc")).toEqual({ kind: "forbidden" });
+  });
+
+  it("reports any other failure so it can be retried (#119)", async () => {
+    call.mockImplementation(async () => { throw new ApiError(502, "error", "Bad Gateway"); });
+    expect(await listPasskeys("acc")).toEqual({ kind: "failed", message: "Bad Gateway" });
+    call.mockImplementation(async () => { throw new JmapMethodError("inbuxa:Passkey/get", { type: "serverFail" }); });
+    const failed = await listPasskeys("acc");
+    expect(failed.kind).toBe("failed");
   });
 
   it("returns the registration page of a new passkey", async () => {

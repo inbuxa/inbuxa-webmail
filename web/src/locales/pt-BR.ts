@@ -1836,6 +1836,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Conclua a adição da chave de acesso na janela que abriu. A página funciona por 10 minutos.",
     "Rename passkey": "Renomear chave de acesso",
     "Passkeys are turned off for this account.": "As chaves de acesso estão desativadas para esta conta.",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "As chaves de acesso não estão disponíveis para esta conta. Peça ao administrador do seu e-mail se precisar delas.",
+    "Couldn't load your passkeys.": "Não foi possível carregar suas chaves de acesso.",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "Esta conta já tem o máximo de chaves de acesso permitido. Remova uma para adicionar outra.",
     "Couldn't add the passkey.": "Não foi possível adicionar a chave de acesso.",
     "The server didn't return a page to add the passkey on.": "O servidor não retornou uma página para adicionar a chave de acesso.",

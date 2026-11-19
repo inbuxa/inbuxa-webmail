@@ -1833,6 +1833,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "Rond het toevoegen van de toegangssleutel af in het venster dat is geopend. De pagina daar werkt 10 minuten.",
     "Rename passkey": "Toegangssleutel hernoemen",
     "Passkeys are turned off for this account.": "Toegangssleutels zijn uitgeschakeld voor dit account.",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "Toegangssleutels zijn niet beschikbaar voor dit account. Vraag je e-mailbeheerder als je ze nodig hebt.",
+    "Couldn't load your passkeys.": "Je toegangssleutels konden niet worden geladen.",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "Dit account heeft al zoveel toegangssleutels als toegestaan. Verwijder er een om een andere toe te voegen.",
     "Couldn't add the passkey.": "Kon de toegangssleutel niet toevoegen.",
     "The server didn't return a page to add the passkey on.": "De server gaf geen pagina terug om de toegangssleutel toe te voegen.",

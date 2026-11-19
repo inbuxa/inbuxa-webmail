@@ -1841,6 +1841,8 @@ export const catalog: Catalog = {
     "Finish adding the passkey in the window that opened. The page there works for 10 minutes.": "開いたウィンドウでパスキーの追加を完了してください。そのページは 10 分間有効です。",
     "Rename passkey": "パスキーの名前を変更",
     "Passkeys are turned off for this account.": "このアカウントではパスキーが無効になっています。",
+    "Passkeys aren't available for this account. Ask your mail administrator if you need them.": "このアカウントではパスキーを利用できません。必要な場合はメール管理者にお問い合わせください。",
+    "Couldn't load your passkeys.": "パスキーを読み込めませんでした。",
     "This account has as many passkeys as it's allowed. Remove one to add another.": "このアカウントには上限までパスキーがあります。追加するには 1 つ削除してください。",
     "Couldn't add the passkey.": "パスキーを追加できませんでした。",
     "The server didn't return a page to add the passkey on.": "サーバーからパスキー追加用のページが返されませんでした。",
