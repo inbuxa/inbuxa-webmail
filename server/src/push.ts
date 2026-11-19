@@ -27,6 +27,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { absoluteUpstream, getUpstreamSession, upstreamFor } from "./upstream.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
 const RENEW_BEFORE_MS = 60 * 60_000;      // renew an hour before Stalwart expires it
@@ -80,7 +81,7 @@ function keyFor(base: string, username: string) { return `${base} ${username}`; 
 async function jmap(entry: AccountPush, calls: unknown[]) {
   const authorization = await entry.credential.get();
   const upstream = await getUpstreamSession(entry.key, authorization, entry.base);
-  const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
+  const res = await upstreamFetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
     method: "POST",
     headers: { authorization, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ using: USING, methodCalls: calls }),

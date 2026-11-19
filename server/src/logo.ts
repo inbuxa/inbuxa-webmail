@@ -29,6 +29,7 @@
 import type { Context } from "hono";
 import { config } from "./config.js";
 import { upstreamFor } from "./upstream.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 /** How long an answer is kept, here and in the browser. */
 const TTL_MS = 5 * 60_000;
@@ -57,7 +58,7 @@ async function ask(base: string, domain: string, dark: boolean): Promise<Answer>
   if (dark) params.set("theme", "dark");
   const query = params.toString();
   try {
-    const res = await fetch(`${base}/logo${query ? `?${query}` : ""}`, {
+    const res = await upstreamFetch(`${base}/logo${query ? `?${query}` : ""}`, {
       // The server redirects to a URL logo only for an image load
       headers: { "sec-fetch-dest": "image", accept: "image/*" },
       redirect: "manual",

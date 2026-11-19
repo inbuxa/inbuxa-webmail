@@ -28,6 +28,7 @@ import { createHash } from "node:crypto";
 import { config } from "./config.js";
 import { open, randomToken, safeEqual, seal, signInKey } from "./crypto.js";
 import { UpstreamError, absoluteUpstream } from "./upstream.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 export interface TokenSet {
   access: string;
@@ -74,7 +75,7 @@ const metadataCache = new Map<string, { metadata: Metadata; fetchedAt: number }>
 async function metadataFor(base: string): Promise<Metadata> {
   const cached = metadataCache.get(base);
   if (cached && Date.now() - cached.fetchedAt < METADATA_TTL_MS) return cached.metadata;
-  const res = await fetch(`${base}/.well-known/oauth-authorization-server`, {
+  const res = await upstreamFetch(`${base}/.well-known/oauth-authorization-server`, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
@@ -179,7 +180,7 @@ export async function start(params: { username: string; base: string; remember: 
  * the password has matched.
  */
 export async function passwordConfirms(params: { base: string; username: string; password: string }): Promise<boolean> {
-  const res = await fetch(absoluteUpstream("/api/auth", params.base), {
+  const res = await upstreamFetch(absoluteUpstream("/api/auth", params.base), {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
@@ -242,7 +243,7 @@ export async function refreshTokens(base: string, tokens: TokenSet): Promise<Tok
 }
 
 async function tokenRequest(endpoint: string, fields: Record<string, string>): Promise<TokenSet | null> {
-  const res = await fetch(endpoint, {
+  const res = await upstreamFetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body: new URLSearchParams({ ...fields, client_id: config.oauthClientId, client_secret: config.oauthClientSecret }),
@@ -281,7 +282,7 @@ export async function revokeTokens(base: string, tokens: TokenSet): Promise<bool
   if (!endpoint) return false;
   const revoke = async (token: string, hint: string) => {
     try {
-      const res = await fetch(endpoint!, {
+      const res = await upstreamFetch(endpoint!, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
         body: new URLSearchParams({ token, token_type_hint: hint, client_id: config.oauthClientId, client_secret: config.oauthClientSecret }),

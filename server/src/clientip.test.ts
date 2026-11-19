@@ -92,3 +92,11 @@ test("an explicit trusted list replaces the defaults", () => {
 test("a chain of nothing but our own proxies still yields an address", () => {
   assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "10.0.0.2, 10.0.0.3" }, cfg), "10.0.0.2");
 });
+
+// The image listens on ::, where Node reports an IPv4 peer as ::ffff:a.b.c.d
+test("a proxy reaching us over IPv4 on a dual-stack socket is still trusted", () => {
+  assert.equal(resolveClientIp("::ffff:10.244.1.5", { forwardedFor: "203.0.113.7" }, cfg), "203.0.113.7");
+  assert.equal(resolveClientIp("::ffff:127.0.0.1", { forwardedFor: "203.0.113.7" }, cfg), "203.0.113.7");
+  // ...and an untrusted one is named in its plain form
+  assert.equal(resolveClientIp("::ffff:198.51.100.4", { forwardedFor: "203.0.113.7" }, cfg), "198.51.100.4");
+});

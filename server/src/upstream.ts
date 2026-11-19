@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { grantsAdministration } from "./adminGate.js";
+import { upstreamFetch } from "./clientcontext.js";
 
 export interface UpstreamSession {
   capabilities: Record<string, unknown>;
@@ -137,7 +138,7 @@ async function detectAdminUrl(authorization: string, session: UpstreamSession): 
   let prefix: string | null = DEFAULT_ADMIN_PREFIX;
   if (accountId) {
     try {
-      const res = await fetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
+      const res = await upstreamFetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
         method: "POST",
         headers: { authorization, "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({
@@ -166,7 +167,7 @@ export function wellKnownUrl(base: string = config.stalwartUrl): string {
  * header. Throws UpstreamError(401) on bad credentials.
  */
 export async function fetchUpstreamSession(authorization: string, base: string = config.stalwartUrl): Promise<UpstreamSession> {
-  const res = await fetch(wellKnownUrl(base), {
+  const res = await upstreamFetch(wellKnownUrl(base), {
     headers: { authorization, accept: "application/json" },
     redirect: "follow",
     signal: AbortSignal.timeout(config.upstreamTimeout),
@@ -335,7 +336,7 @@ async function fetchAccountInfo(authorization: string, session: UpstreamSession)
   if (!accountId) return EMPTY_INFO;
   // Against the server that issued this session, not the default: with a
   // domain mapped elsewhere, the default has never heard of the account.
-  const res = await fetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
+  const res = await upstreamFetch(absoluteUpstream(session.apiUrl, session.baseUrl), {
     method: "POST",
     headers: { authorization, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
@@ -393,7 +394,7 @@ export function normalizePermission(name: string): string {
  */
 async function fetchServerAccount(authorization: string, base: string): Promise<Pick<AccountInfo, "edition" | "permissions">> {
   try {
-    const res = await fetch(`${base}/api/account`, {
+    const res = await upstreamFetch(`${base}/api/account`, {
       headers: { authorization, accept: "application/json" },
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });

@@ -81,7 +81,12 @@ export interface ForwardHeaders {
  * which is the only part nobody downstream can forge.
  */
 export function resolveClientIp(peer: string, headers: ForwardHeaders, cfg: TrustConfig): string {
-  if (!cfg.trustProxy || !peer || peer === "unknown") return peer || "unknown";
+  if (!peer || peer === "unknown") return "unknown";
+  // Listening on :: (the image does), Node reports an IPv4 peer as
+  // ::ffff:10.0.0.5, which no IPv4 range matches: every IPv4 proxy looked
+  // untrusted and became "the client" for all of its users.
+  peer = peer.replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, "");
+  if (!cfg.trustProxy) return peer;
   // A peer we do not run is not allowed to tell us who its client is.
   if (!isTrustedProxy(peer, cfg)) return peer;
   const chain = (headers.forwardedFor ?? "")
