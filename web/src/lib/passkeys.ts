@@ -1,4 +1,5 @@
 import { client, INBUXA_CAP } from "@/jmap/client";
+import type { Id, JmapSession } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 
 /**
@@ -58,6 +59,26 @@ export async function listPasskeys(accountId: string): Promise<Passkey[] | null>
   } catch {
     return null;
   }
+}
+
+/**
+ * What the server says up front about adding a passkey to this account
+ * (passkeys PK-19): `allowed` false when a switch turns passkeys off for it,
+ * `max` the most it may have. Both undefined from a server that doesn't say,
+ * which then refuses the add itself.
+ */
+export function passkeyPolicy(
+  session: JmapSession | null,
+  accountId: Id | null,
+): { allowed?: boolean; max?: number } {
+  if (!session || !accountId) return {};
+  const cap = session.accounts[accountId]?.accountCapabilities?.[INBUXA_CAP] as
+    | { passkeysAllowed?: unknown; maxPasskeys?: unknown }
+    | undefined;
+  return {
+    allowed: typeof cap?.passkeysAllowed === "boolean" ? cap.passkeysAllowed : undefined,
+    max: typeof cap?.maxPasskeys === "number" ? cap.maxPasskeys : undefined,
+  };
 }
 
 /** Words for a refused create (PK-5). */

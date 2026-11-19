@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const call = vi.fn();
 vi.mock("@/jmap/client", () => ({ client: { call: (...a: unknown[]) => call(...a) }, INBUXA_CAP: "urn:inbuxa:jmap" }));
 
-import { addErrorMessage, listPasskeys, removePasskey, renamePasskey, startPasskey } from "@/lib/passkeys";
+import { addErrorMessage, listPasskeys, passkeyPolicy, removePasskey, renamePasskey, startPasskey } from "@/lib/passkeys";
+import type { JmapSession } from "@/jmap/types";
 
 describe("passkeys (#334)", () => {
   beforeEach(() => { call.mockReset(); });
@@ -47,5 +48,15 @@ describe("passkeys (#334)", () => {
     expect(call.mock.calls[1]![1]).toEqual({ accountId: "acc", destroy: ["p"] });
     call.mockResolvedValue({ notDestroyed: { p: { type: "notFound" } } });
     await expect(removePasskey("acc", "p")).rejects.toThrow();
+  });
+
+  it("reads up front whether adding is allowed (PK-19)", () => {
+    const session = (cap: Record<string, unknown>) =>
+      ({ accounts: { acc: { accountCapabilities: { "urn:inbuxa:jmap": cap } } } }) as unknown as JmapSession;
+    expect(passkeyPolicy(session({ passkeysAllowed: false, maxPasskeys: 10 }), "acc")).toEqual({ allowed: false, max: 10 });
+    expect(passkeyPolicy(session({ passkeysAllowed: true, maxPasskeys: 3 }), "acc")).toEqual({ allowed: true, max: 3 });
+    // an older server says nothing: the add is offered and refused there
+    expect(passkeyPolicy(session({ logo: null }), "acc")).toEqual({ allowed: undefined, max: undefined });
+    expect(passkeyPolicy(null, "acc")).toEqual({});
   });
 });
