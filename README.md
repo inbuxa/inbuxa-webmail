@@ -56,6 +56,29 @@ settings included, lives on the server, so the container is disposable.
 
 `.env.example` lists the rest.
 
+### Secrets in files
+
+`APP_SECRET`, `APP_SECRET_PREVIOUS` and `OAUTH_CLIENT_SECRET` can come from a
+file instead, such as a mounted Kubernetes or Docker secret: set
+`APP_SECRET_FILE=/run/secrets/app-secret` and leave `APP_SECRET` unset. One
+trailing newline is dropped. The webmail won't start if both forms are set, or
+if the file can't be read or is empty. The error names the variable and the
+file, never the secret.
+
+### Read-only root filesystem
+
+The image runs with a read-only root. The only thing it writes is
+`SESSION_FILE`, which defaults to `/data/sessions.json`: set it empty, or use
+`SESSION_BACKEND=cookie`, and nothing needs to be writable. Give it a small
+`/tmp` all the same (`--tmpfs /tmp`, or an `emptyDir` in Kubernetes), for
+Node and anything else that expects one. `IMMUTABLE=1` makes the webmail check
+all this at start and refuse to run if the root is writable or
+`SESSION_FILE` is set:
+
+```sh
+docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 -e SESSION_FILE= ...
+```
+
 On the mail server, set `INBUXA_WEBMAIL_URL` to the webmail's address (with
 `BASE_PATH`, if any) and `INBUXA_WEBMAIL_CLIENT_SECRET` to the shared secret.
 The server registers the client on start and allows the webmail's origin for
