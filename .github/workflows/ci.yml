@@ -390,11 +390,32 @@ jobs:
             --notes-file notes.md "$kind" "${files[@]}"
           echo "created the GitHub release for $TAG with ${#files[@]} file(s)"
 
+  # ------------------------------------------------------------ sign ------
+  # Signs the image keyless, attests its SBOMs and how it was built, and
+  # attaches the SBOMs to the release (sign.yml). It runs once the image,
+  # its index and the release exist. The forum announcement goes out when
+  # the release is published, before this; a failure here fails the tag's
+  # check, and is put right by running sign.yml by hand with the tag.
+  sign:
+    if: ${{ !cancelled() && vars.BUILD_ON == 'github' && github.ref_type == 'tag' && needs.publish.result == 'success' }}
+    needs: [version, publish, ghcr]
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
+    uses: ./.github/workflows/sign.yml
+    with:
+      tag: ${{ github.ref_name }}
+      built-here: true
+      ghcr: ${{ needs.ghcr.result == 'success' }}
+    secrets: inherit
+
   # One commit status on Gitea for the whole run: what Gitea's ci.yml waits
   # for, and what a Gitea PR shows.
   report:
     if: ${{ always() && vars.BUILD_ON == 'github' }}
-    needs: [pending, node, docker-build, version, build, publish, files]
+    needs: [pending, node, docker-build, version, build, publish, files, sign]
     runs-on: ubuntu-latest
     steps:
       - env:
