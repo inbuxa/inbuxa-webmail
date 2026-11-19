@@ -201,7 +201,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
     useSession.getState().view(id);
-    navigate("/mail");
+    // Replace, in a tab as in the installed app (#128): the account shown
+    // isn't in the URL, so a page left in the history can't bring the old
+    // account back -- Back would land on the inbox already showing and seem
+    // to do nothing.
+    navigate("/mail", { replace: true });
   };
   const composeOff = section !== "files" && section !== "calendar" && section !== "contacts" && composeBlocked() !== null;
 
