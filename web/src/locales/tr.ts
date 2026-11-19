@@ -59,6 +59,7 @@ export const catalog: Catalog = {
 		"A tenant needs a name.": "Bir kiracının bir ada ihtiyacı vardır.",
 		"A to Z": "A'dan Z'ye",
 		"AGPL-3.0 source": "AGPL-3.0 kaynak kodu",
+		"Powered by {product} v{version}": "{product} v{version} ile çalışır",
 		"AGPL-3.0-or-later · {source}": "AGPL-3.0-or-later · {source}",
 		"About": "Hakkında",
 		"About {app}": "{app} Hakkında",

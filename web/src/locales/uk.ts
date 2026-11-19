@@ -855,6 +855,7 @@ export const catalog: Catalog = {
     "connected": "підключено",
     "reconnecting…": "перепідключення…",
     "AGPL-3.0 source": "Вихідний код AGPL-3.0",
+    "Powered by {product} v{version}": "Працює на {product} v{version}",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "Профілі відправника та підписи",

@@ -861,6 +861,7 @@ export const catalog: Catalog = {
     "connected": "подключено",
     "reconnecting…": "переподключение…",
     "AGPL-3.0 source": "Исходный код AGPL-3.0",
+    "Powered by {product} v{version}": "Работает на {product} v{version}",
 
     // ── Identities, templates, filters ─────────────────────────────────
     "Identities & signatures": "Профили отправителя и подписи",
