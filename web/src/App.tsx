@@ -11,7 +11,7 @@ import { push } from "@/jmap/push";
 import { client } from "@/jmap/client";
 import { ToastHost, toast } from "@/ui/toast";
 import { ConfirmHost } from "@/ui/dialog";
-import { Spinner } from "@/ui/misc";
+import { AppLoading, Spinner } from "@/ui/misc";
 import { LoginPage } from "@/views/Login";
 import { AppShell } from "@/views/AppShell";
 import { MailView } from "@/views/mail/MailView";
@@ -69,13 +69,7 @@ export function App() {
     return () => { live = false; };
   }, []);
 
-  if (status === "loading" || !languageReady) {
-    return (
-      <div className="center" style={{ height: "100%" }}>
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  if (status === "loading" || !languageReady) return <AppLoading />;
   return (
     /*
      * Every in-app navigation runs through `aroundNav` -- links, redirects and
@@ -346,13 +340,7 @@ function AuthedApp() {
 
   // Nothing worth painting until the account's settings are in force; see the
   // comment on `ready` above. With a cache this was true from the first frame.
-  if (!ready) {
-    return (
-      <div className="center" style={{ height: "100%" }}>
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  if (!ready) return <AppLoading />;
 
   return (
     <AppShell>
