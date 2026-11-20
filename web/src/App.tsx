@@ -25,6 +25,7 @@ import { listenForVerification, renewWebPush } from "@/lib/notify/webpushEnable"
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { BASE_PATH, withBase } from "@/lib/basePath";
+import { withViewing } from "@/lib/accountHistory";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 
 const ContactsView = lazy(() => import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })));
@@ -95,12 +96,16 @@ export function App() {
        */
       base={BASE_PATH}
       aroundNav={(navigate, to, options) => {
+        // Each page remembers the account it shows, so Back can bring that
+        // account back (#133). Read when the move happens, not when it was
+        // asked for: an account switch changes it just before navigating.
+        const go = () => navigate(to, { ...options, state: withViewing(options?.state, useSession.getState().viewing) });
         if (!hasUnsavedChanges()) {
-          navigate(to, options);
+          go();
           return;
         }
         void confirmLeaveUnsaved().then((ok) => {
-          if (ok) navigate(to, options);
+          if (ok) go();
         });
       }}
     >

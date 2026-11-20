@@ -30,6 +30,7 @@ import { hasAdministration } from "@/lib/admin/adminAccess";
 import { usePermissions } from "./admin/usePermissions";
 import { AdminNav } from "./admin/AdminNav";
 import { useSidewaysReplace } from "@/lib/backStack";
+import { followHistory, onHistoryMove, viewingIn, withViewing } from "@/lib/accountHistory";
 
 // The other sections' sidebars load with the section, as their views already do.
 const FilesTree = lazy(() => import("./files/FilesTree").then((m) => ({ default: m.FilesTree })));
@@ -201,12 +202,43 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
     useSession.getState().view(id);
-    // Replace, in a tab as in the installed app (#128): the account shown
-    // isn't in the URL, so a page left in the history can't bring the old
-    // account back -- Back would land on the inbox already showing and seem
-    // to do nothing.
-    navigate("/mail", { replace: true });
+    if (useSession.getState().viewing !== id) return;
+    // A new page, marked with the account it shows (see lib/accountHistory),
+    // so Back undoes the switch: from a group, Back goes to your own mail
+    // first, and only then out of the app (#133). The page left behind is
+    // marked with the account it showed, so it brings that account back.
+    navigate("/mail");
   };
+
+  /*
+   * Back or Forward onto a page that showed another account (#133). The
+   * history has already moved by the time this runs, so the account follows
+   * the page (see followHistory). When a message being written keeps it,
+   * the page is replaced with this account's mail, since the folder in its
+   * address belongs to the other one. onHistoryMove runs it ahead of the
+   * router, which matters; see there.
+   */
+  useEffect(
+    () =>
+      onHistoryMove((e) => {
+        if (followHistory(e.state, useCompose.getState().drafts.length > 0) !== "kept") return;
+        toast.show(t("Send or close the message you're writing first."));
+        navigate("/mail", { replace: true });
+      }),
+    [navigate],
+  );
+
+  /*
+   * Mark the page the shell starts on with the account actually in view. A
+   * reload starts on your own mail, whichever account the page showed before
+   * it, and Back and Forward onto it must agree with what's on screen.
+   */
+  useEffect(() => {
+    const viewing = useSession.getState().viewing;
+    if (viewingIn(window.history.state) !== viewing) {
+      window.history.replaceState(withViewing(window.history.state, viewing), "");
+    }
+  }, []);
   const composeOff = section !== "files" && section !== "calendar" && section !== "contacts" && composeBlocked() !== null;
 
   return (
