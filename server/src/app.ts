@@ -7,6 +7,7 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import { ALIVE_FRAME, attach as pushAttach, attachRelay as pushAttachRelay, prepare as pushPrepare, receive as pushReceive, pushStatus } from "./push.js";
+import { isDraining, onStreamsEnd } from "./drain.js";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { config } from "./config.js";
 import { sourceDocument } from "./source.js";
@@ -522,13 +523,22 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   // The browser's address, for the mail server (clientcontext.ts)
   app.use("*", (c, next) => withClientIp(clientIp(c), next));
   app.use("*", securityHeaders);
+  // K-W5: while draining, every response closes its connection, so
+  // keep-alive clients and proxies open their next one to another replica
+  app.use("*", async (c, next) => {
+    await next();
+    if (isDraining() && !c.res.headers.get("content-type")?.startsWith("text/event-stream")) c.header("Connection", "close");
+  });
   app.use("*", compressResponses(basePath));
 
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
   api.use("*", smallBodies);
 
-  api.get("/health", (c) => c.json({ ok: true, name: config.appName, version: config.version, push: pushStatus() }));
+  // 503 while draining (K-W5): a readiness probe or load balancer stops
+  // sending here before the server stops taking connections
+  api.get("/health", (c) => c.json({ ok: !isDraining(), name: config.appName, version: config.version, push: pushStatus(),
+    ...(isDraining() ? { draining: true } : {}) }, isDraining() ? 503 : 200));
 
   /*
    * Stalwart's push delivery. Authenticated by the token in the path -- 32
@@ -1396,11 +1406,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();
         out.write(": subscribed\n\n" + ALIVE_FRAME);
+        // Ended cleanly when the server drains; the tab reconnects elsewhere
+        out.on("close", onStreamsEnd(() => out.end()));
         return RESPONSE_ALREADY_SENT;
       }
       if (config.rawPushRelay) return relayPushRaw(c, url, session.authorization, session.username);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
+      // Draining ends the upstream, which ends this stream cleanly (pull())
+      const offDrain = onStreamsEnd(() => controller.abort());
+      controller.signal.addEventListener("abort", offDrain);
       const upstreamRes = upstreamFetch(url, {
         headers: { authorization: session.authorization, accept: "text/event-stream" },
         signal: controller.signal,
@@ -1705,6 +1720,8 @@ export function relayPushRaw(c: Context<Env>, url: string, authorization: string
   // The browser already has a 200, so an upstream failure ends the stream;
   // EventSource reports that as an error and the client retries with backoff.
   const fail = () => { out.end(); };
+  // K-W5: a draining server ends this stream the same way
+  out.on("close", onStreamsEnd(fail));
   /*
    * Once this account's subscription verifies, the upstream request goes and
    * the browser stream below is served by fan-out instead. Two things have

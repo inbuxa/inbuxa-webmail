@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { config } from "./config.js";
 import { createApp, sessions } from "./app.js";
+import { drain } from "./drain.js";
 
 async function main() {
   await sessions.init();
@@ -24,9 +25,19 @@ async function main() {
     process.exit(1);
   });
 
+  // Drained, not dropped (see drain.ts): requests in flight finish and each
+  // tab's live-update stream reconnects to a replica that's staying. A
+  // second signal while draining means now.
+  let stopping = false;
   const shutdown = async (signal: string) => {
+    if (stopping) {
+      console.log(`[ihasmail] ${signal} again: stopping now`);
+      process.exit(0);
+    }
+    stopping = true;
     console.log(`[ihasmail] ${signal} received, shutting down`);
-    server.close();
+    await drain(server as import("node:http").Server, config.shutdownDelay, config.shutdownTimeout,
+      (msg) => console.log(`[ihasmail] ${msg}`));
     await sessions.close();
     process.exit(0);
   };
