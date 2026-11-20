@@ -395,6 +395,10 @@ export const config = {
   /** True when this instance has asserted, and verified, that it is immutable. */
   immutable,
   upstreamTimeout: int("UPSTREAM_TIMEOUT", 30_000),
+  /** K-W5: on SIGTERM, how long to keep serving while load balancers move on (ms). */
+  shutdownDelay: int("SHUTDOWN_DELAY", 3_000),
+  /** K-W5: then how long requests in flight get to finish (ms). */
+  shutdownTimeout: int("SHUTDOWN_TIMEOUT", 5_000),
   maxUploadBytes: int("MAX_UPLOAD_BYTES", 50 * 1024 * 1024),
   imageProxy: bool("IMAGE_PROXY", true),
   /*
