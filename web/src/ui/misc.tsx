@@ -4,6 +4,7 @@ import { avatarColor, initials } from "@/lib/address";
 import { useContacts } from "@/store/contacts";
 import { contactPhoto } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { brandImage } from "@/lib/brand";
 
 export function Avatar({ who, size, className }: { who: EmailAddress | { name?: string | null; email?: string } | string | null | undefined; size?: "sm" | "lg" | "xl"; className?: string }) {
   const email = typeof who === "string" ? who : (who?.email ?? "");
@@ -48,6 +49,22 @@ export function Spinner({ size = "md", label }: { size?: "md" | "lg"; label?: st
     <div className="row" style={{ justifyContent: "center", padding: 16, gap: 10 }}>
       <span className={`spinner ${size === "lg" ? "lg" : ""}`} />
       {label && <span className="muted">{label}</span>}
+    </div>
+  );
+}
+
+/**
+ * The app's loading view while the session is checked and the account's
+ * settings arrive (#134): the same markup as the placeholder in index.html,
+ * which draws it before any JavaScript runs, and styled by the rules there, so
+ * nothing moves when React takes over. The mark is inbuxa's on every instance,
+ * as it has to be in index.html.
+ */
+export function AppLoading() {
+  return (
+    <div className="boot" aria-busy="true">
+      <img className="boot-mark" src={brandImage("/img/inbuxa-mark.png")} alt="" />
+      <span className="boot-ring" />
     </div>
   );
 }

@@ -24,9 +24,34 @@
     <link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=2026-09-27a" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>inbuxa</title>
+    <!--
+      #134: the loading view, drawn before any JavaScript runs. It sits inside
+      #root, so React replaces it when it mounts, and AppLoading (ui/misc.tsx)
+      draws the same thing while the session is checked, so the handover
+      doesn't move anything. Its rules live here rather than in app.css because
+      the stylesheet arrives with the bundle. Until a theme is applied it uses
+      the default theme's colors (ihasmail, dark), written out, not the
+      stylesheet's :root, whose light values would flash before applyTheme()
+      runs; from then on, the theme's own. No text: nothing
+      here can be translated yet. The mark is inbuxa's even on a renamed
+      instance, whose name isn't known until the server answers.
+    -->
+    <style>
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #0d2430; }
+      .boot-mark { width: 48px; height: auto; animation: boot-bounce 1.4s infinite; }
+      .boot-ring { width: 20px; height: 20px; box-sizing: border-box; border: 2px solid #2e6a7a; border-top-color: #46cac3; border-radius: 50%; animation: boot-spin .7s linear infinite; }
+      [data-theme] .boot { background: var(--bg); }
+      [data-theme] .boot-ring { border-color: var(--border-strong); border-top-color: var(--accent); }
+      @keyframes boot-bounce {
+        0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(.8, 0, 1, 1); }
+        50% { transform: none; animation-timing-function: cubic-bezier(0, 0, .2, 1); }
+      }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .boot-mark, .boot-ring { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" aria-hidden="true"><img class="boot-mark" src="/img/inbuxa-mark.png?v=2026-09-27a" alt="" /><span class="boot-ring"></span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
