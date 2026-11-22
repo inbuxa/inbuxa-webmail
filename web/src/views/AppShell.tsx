@@ -30,7 +30,7 @@ import { hasAdministration } from "@/lib/admin/adminAccess";
 import { usePermissions } from "./admin/usePermissions";
 import { AdminNav } from "./admin/AdminNav";
 import { useSidewaysReplace } from "@/lib/backStack";
-import { followHistory, onHistoryMove, viewingIn, withViewing } from "@/lib/accountHistory";
+import { backToOwnMail, followHistory, onHistoryMove, startPositions, withViewing } from "@/lib/accountHistory";
 
 // The other sections' sidebars load with the section, as their views already do.
 const FilesTree = lazy(() => import("./files/FilesTree").then((m) => ({ default: m.FilesTree })));
@@ -201,6 +201,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       toast.show(t("Send or close the message you're writing first."));
       return;
     }
+    // Back to your own mail steps back past the other account's pages, as
+    // "Back to my mail" does (#143)
+    if (id === null) {
+      backToOwnMail(navigate, false);
+      return;
+    }
     useSession.getState().view(id);
     if (useSession.getState().viewing !== id) return;
     // A new page, marked with the account it shows (see lib/accountHistory),
@@ -235,9 +241,8 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   useEffect(() => {
     const viewing = useSession.getState().viewing;
-    if (viewingIn(window.history.state) !== viewing) {
-      window.history.replaceState(withViewing(window.history.state, viewing), "");
-    }
+    // ...and with its position, which every later page counts from (#143)
+    window.history.replaceState(startPositions(withViewing(window.history.state, viewing), viewing), "");
   }, []);
   const composeOff = section !== "files" && section !== "calendar" && section !== "contacts" && composeBlocked() !== null;
 

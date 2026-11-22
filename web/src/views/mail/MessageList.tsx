@@ -91,6 +91,15 @@ interface Props {
   isSearch: boolean;
 }
 
+/*
+ * Where the list was scrolled to, for the list it was showing (#141). On a
+ * phone, and with the reading pane off, opening a message takes the list off
+ * the screen, and Back puts up a new one. Without this it starts at the top,
+ * however far down the reader had gone. Only the list last shown is kept:
+ * Back returns to it, and a different folder or search starts at the top.
+ */
+let lastScroll: { key: string; offset: number } | null = null;
+
 export function MessageList({ title, list, openThreadId, openMessageId, focusId, setFocusId, onOpen, actions, mailboxId, isSearch }: Props) {
   const [, navigate] = useLocation();
   const emails = useMail((s) => s.emails);
@@ -143,11 +152,17 @@ export function MessageList({ title, list, openThreadId, openMessageId, focusId,
   const isDrafts = mailbox?.role === "drafts";
 
   const rowHeight = twoLine ? (settings.density === "compact" ? 56 : settings.density === "comfortable" ? 78 : 66) : settings.density === "compact" ? 36 : settings.density === "comfortable" ? 52 : 44;
+  const mailAccount = useMail((s) => s.accountId);
+  const scrollKey = list ? `${mailAccount ?? ""}|${list.key}` : null;
   const virtualizer = useVirtualizer({
     count: ids.length + (list && !list.exhausted ? 1 : 0),
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowHeight,
     overscan: 12,
+    initialOffset: () => (scrollKey !== null && lastScroll?.key === scrollKey ? lastScroll.offset : 0),
+    onChange: (v) => {
+      if (scrollKey !== null && v.scrollOffset !== null) lastScroll = { key: scrollKey, offset: v.scrollOffset };
+    },
   });
 
   // Re-measure when the row height changes (one-line ↔ two-line, density).

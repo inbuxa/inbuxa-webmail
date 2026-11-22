@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useSession } from "@/store/session";
-import { followHistory, onHistoryMove, viewingIn, withViewing } from "@/lib/accountHistory";
+import { backToOwnMail, followHistory, onHistoryMove, positionsIn, startPositions, stepsBackToOwn, viewingIn, withPositions, withViewing } from "@/lib/accountHistory";
 
 /**
  * #133: after switching to a group's mail, Back closed the installed app.
@@ -110,5 +110,63 @@ describe("the order on Back", () => {
     onHistoryMove(() => seen.push("x"))();
     window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
     expect(seen).toEqual([]);
+  });
+});
+
+describe("Back to my mail (#143)", () => {
+  // Your own inbox, then a switch to the group, a folder there, a message
+  const start = startPositions(null, null);
+  const switched = withPositions(withViewing(undefined, "group"), start, false, "group");
+  const folder = withPositions(withViewing(undefined, "group"), switched, true, "group");
+  const message = withPositions(withViewing(undefined, "group"), folder, false, "group");
+
+  it("counts the pages since your own mail was last shown", () => {
+    expect(positionsIn(start)).toEqual({ pos: 0, own: 0 });
+    expect(stepsBackToOwn(switched)).toBe(1);
+    expect(stepsBackToOwn(folder)).toBe(1);
+    expect(stepsBackToOwn(message)).toBe(2);
+  });
+
+  it("starts again from a page that shows your own mail", () => {
+    const own = withPositions(withViewing(undefined, null), message, false, null);
+    expect(positionsIn(own)).toEqual({ pos: 3, own: 3 });
+    expect(stepsBackToOwn(own)).toBe(0);
+  });
+
+  it("keeps a page's position through a reload, now on your own mail", () => {
+    expect(positionsIn(startPositions(message, null))).toEqual({ pos: 2, own: 2 });
+  });
+
+  it("doesn't guess after a page with no positions", () => {
+    expect(positionsIn(withPositions({}, {}, false, "group"))).toBeNull();
+    expect(stepsBackToOwn(withPositions({}, null, false, "group"))).toBe(0);
+    for (const bad of [{ inbuxaPos: 1, inbuxaOwnPos: 2 }, { inbuxaPos: 1.5, inbuxaOwnPos: 0 }, { inbuxaPos: "2", inbuxaOwnPos: 0 }]) {
+      expect(positionsIn(bad)).toBeNull();
+    }
+  });
+
+  it("steps back past the group's pages instead of adding a page", () => {
+    useSession.getState().view("group");
+    window.history.replaceState(message, "");
+    const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+    const navigate = vi.fn();
+    backToOwnMail(navigate, false);
+    expect(go).toHaveBeenCalledWith(-2);
+    expect(navigate).not.toHaveBeenCalled();
+    go.mockRestore();
+  });
+
+  it("switches and replaces the page while a message is being written, or with no positions", () => {
+    for (const [state, writing] of [[message, true], [{}, false]] as const) {
+      useSession.getState().view("group");
+      window.history.replaceState(state, "");
+      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+      const navigate = vi.fn();
+      backToOwnMail(navigate, writing);
+      expect(go).not.toHaveBeenCalled();
+      expect(useSession.getState().viewing).toBeNull();
+      expect(navigate).toHaveBeenCalledWith("/mail", { replace: true });
+      go.mockRestore();
+    }
   });
 });
