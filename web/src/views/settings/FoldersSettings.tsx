@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Eye, EyeOff, Folder, Pencil, Plus, Share2, Trash2, Inbox } from "lucide-react";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import { formatSize } from "@/lib/format";
@@ -31,6 +32,11 @@ const FIXED_ROLES = new Set<string>(["inbox", "junk", "trash"]);
 
 export function FoldersSettings() {
   const mailboxes = useMail((s) => s.mailboxes);
+  // Hiding a folder is the reader's own subscription, and they have none in a
+  // shared or group mailbox or a locked account, so every folder there would
+  // read "hidden" and the folder list shows them all anyway (MailboxTree).
+  // Hide/Show has nothing to do there, and isn't offered (#140).
+  const viewingOther = useSession((s) => s.viewing !== null);
   const mailboxPath = useMail((s) => s.mailboxPath);
   const [share, setShare] = useState<Mailbox | null>(null);
   const list = useMemo(() => Object.values(mailboxes).map((m) => ({ m, path: mailboxPath(m.id) })).sort((a, b) => a.path.localeCompare(b.path)), [mailboxes, mailboxPath]);
@@ -87,7 +93,7 @@ export function FoldersSettings() {
         <tbody>
           {list.map(({ m, path }) => (
             <tr key={m.id}>
-              <td><div className="row gap-8">{m.role === "inbox" ? <Inbox size={16} /> : <Folder size={16} />}<span>{mailboxDisplayPath(m, mailboxes)}</span>{!m.isSubscribed && <span className="badge muted">{t("hidden")}</span>}</div></td>
+              <td><div className="row gap-8">{m.role === "inbox" ? <Inbox size={16} /> : <Folder size={16} />}<span>{mailboxDisplayPath(m, mailboxes)}</span>{!viewingOther && !m.isSubscribed && <span className="badge muted">{t("hidden")}</span>}</div></td>
               <td>
                 <select
                   className="input"
@@ -113,7 +119,7 @@ export function FoldersSettings() {
                   <button className="icon-btn sm" title={t("Rename")} disabled={Boolean(m.role) && m.role !== "subscribed"} onClick={async () => { const n = await // The server's own name, never the localized one: this box writes
     // back whatever it is prefilled with.
     promptDialog({ title: t("Rename folder"), defaultValue: m.name }); if (n?.trim() && n !== m.name) { try { await useMail.getState().updateMailbox(m.id, { name: n.trim() }); } catch (err) { toast.error((err as Error).message); } } }}><Pencil size={16} /></button>
-                  <button className="icon-btn sm" title={m.isSubscribed ? t("Hide") : t("Show")} disabled={m.role === "inbox"} onClick={() => void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })}>{m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                  {!viewingOther && <button className="icon-btn sm" title={m.isSubscribed ? t("Hide") : t("Show")} disabled={m.role === "inbox"} onClick={async () => { try { await useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed }); } catch (err) { toast.error((err as Error).message); } }}>{m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}</button>}
                   {Object.keys(m.shareWith ?? {}).length > 0 && <button className="icon-btn sm" title={t("Stop sharing")} onClick={() => setShare(m)}><Share2 size={16} /></button>}
                   <button className="icon-btn sm danger" title={t("Delete")} disabled={Boolean(m.role) && m.role !== "subscribed"} onClick={async () => { if (await confirmDialog({ title: t("Delete “{name}”?", { name: m.name }), message: plural(m.totalEmails, { one: "{n} message will be permanently deleted.", other: "{n} messages will be permanently deleted." }), confirmLabel: t("Delete"), danger: true })) { try { await useMail.getState().destroyMailbox(m.id, true); } catch (err) { toast.error((err as Error).message); } } }}><Trash2 size={16} /></button>
                 </div>

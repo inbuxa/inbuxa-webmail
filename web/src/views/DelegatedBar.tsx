@@ -1,6 +1,8 @@
 import { Lock, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { useSession, useViewingDelegation, useViewingShared } from "@/store/session";
+import { useCompose } from "@/store/compose";
+import { backToOwnMail } from "@/lib/accountHistory";
 import { t } from "@/lib/i18n";
 import type { DelegationAccess } from "@/lib/delegation";
 
@@ -27,10 +29,8 @@ export function DelegatedBar() {
   const delegation = useViewingDelegation();
   const shared = useViewingShared();
   const [, navigate] = useLocation();
-  const back = () => {
-    useSession.getState().view(null);
-    navigate("/mail");
-  };
+  // Steps back past this account's pages rather than adding one (#143)
+  const back = () => backToOwnMail(navigate, useCompose.getState().drafts.length > 0);
   // MA-A: a shared or group mailbox in view says whose it is, with the same way back
   if (viewing && shared) {
     return (

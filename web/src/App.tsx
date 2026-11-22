@@ -25,7 +25,9 @@ import { listenForVerification, renewWebPush } from "@/lib/notify/webpushEnable"
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { BASE_PATH, withBase } from "@/lib/basePath";
-import { withViewing } from "@/lib/accountHistory";
+import { viewingIn, withPositions, withViewing } from "@/lib/accountHistory";
+import { inboxIdOf, isHome, stepsBackHome, withBehind } from "@/lib/backStack";
+import { isInstalledApp } from "@/lib/mailhandler";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 
 const ContactsView = lazy(() => import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })));
@@ -97,9 +99,29 @@ export function App() {
       base={BASE_PATH}
       aroundNav={(navigate, to, options) => {
         // Each page remembers the account it shows, so Back can bring that
-        // account back (#133). Read when the move happens, not when it was
-        // asked for: an account switch changes it just before navigating.
-        const go = () => navigate(to, { ...options, state: withViewing(options?.state, useSession.getState().viewing) });
+        // account back (#133), its position, so "Back to my mail" can step
+        // back to your own (#143), and whether the inbox is behind it, so
+        // going to the inbox can step back to it (#142). Read when the move
+        // happens, not when it was asked for: an account switch changes the
+        // account just before navigating.
+        const go = () => {
+          const current: unknown = window.history.state;
+          const viewing = useSession.getState().viewing;
+          const replace = Boolean(options?.replace);
+          const path = window.location.pathname;
+          const from = BASE_PATH && path.startsWith(BASE_PATH) ? path.slice(BASE_PATH.length) || "/" : path;
+          const inboxId = inboxIdOf(useMail.getState().mailboxes);
+          // Only from a page showing the account in view: one Back has just
+          // moved to while a message being written kept the account isn't.
+          if (viewingIn(current) === viewing && stepsBackHome(from, String(to), inboxId, isInstalledApp(), replace, current, viewing)) {
+            window.history.back();
+            return;
+          }
+          let state = withViewing(options?.state, viewing);
+          state = withPositions(state, current, replace, viewing);
+          state = withBehind(state, current, replace, isHome(from, inboxId), viewingIn(current));
+          navigate(to, { ...options, state });
+        };
         if (!hasUnsavedChanges()) {
           go();
           return;
