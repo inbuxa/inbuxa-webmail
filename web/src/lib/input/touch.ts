@@ -337,23 +337,51 @@ export function usePullToRefresh(
 
   useEffect(() => {
     if (!el || !enabled) return;
+    let startX = 0;
     let startY: number | null = null;
     let distance = 0;
     let armed = false;
     let running = false;
+    /** Whether this drag has been seen to be vertical yet. */
+    let vertical = false;
 
     const onStart = (e: TouchEvent) => {
       // Only from a list already at the top, and only one finger: a pinch that
       // happens to begin near the top is not a pull.
       if (running || e.touches.length !== 1 || el.scrollTop > 0) return;
+      startX = e.touches[0]!.clientX;
       startY = e.touches[0]!.clientY;
       distance = 0;
       armed = false;
+      vertical = false;
     };
 
     const onMove = (e: TouchEvent) => {
       if (startY === null || e.touches.length !== 1) return;
+      const dx = e.touches[0]!.clientX - startX;
       const dy = e.touches[0]!.clientY - startY;
+      /*
+       * A row swipe and a pull start the same way: a finger on a row at the
+       * top of the list. Both ask `lockAxis` which way the drag went, with the
+       * same numbers, so exactly one of them takes it. A sideways drag that
+       * sinks a little as it goes is the row's, and stays the row's.
+       *
+       * Until the drag has gone far enough to tell, the list doesn't follow:
+       * otherwise every swipe would start by nudging the list down.
+       */
+      if (!vertical) {
+        const axis = lockAxis(dx, dy);
+        if (axis === "x") {
+          startY = null;
+          return;
+        }
+        if (axis === null) {
+          // Still keep the browser's own overscroll out of it, as below.
+          if (pullDistance(dy) > 2 && e.cancelable) e.preventDefault();
+          return;
+        }
+        vertical = true;
+      }
       if (dy <= 0) {
         // Pulled back up, or the gesture was a scroll all along.
         if (distance > 0) pull.current((distance = 0), (armed = false), true);
