@@ -20,7 +20,7 @@ import { LlmOpinionBanner, LlmOpinionDetail, llmBannerOpinion } from "./LlmOpini
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { remoteImagesAllowed } from "@/lib/mail/remoteImages";
-import { EMAIL_BASE_CSS, TEXT_EMAIL_CSS, hasHtmlAlternative, htmlDeclaresColors, markKeptSurfaces, sanitizeEmailHtml } from "@/lib/text/html";
+import { EMAIL_BASE_CSS, TEXT_EMAIL_CSS, hasHtmlAlternative, htmlDeclaresColors, markDarkSurfacesWithoutInk, markKeptSurfaces, sanitizeEmailHtml } from "@/lib/text/html";
 import { openableInTab, previewKind } from "@/lib/preview";
 // Loaded when first opened: it is not needed to show mail, and it is not small.
 const FilterFromMessageDialog = lazy(() => import("./FilterFromMessage").then((m) => ({ default: m.FilterFromMessageDialog })));
@@ -589,6 +589,9 @@ function HtmlBody({ html, bodyStyle, themed, forced, onShowImages, onFollowLink 
     // Tell the sender's painted surfaces apart from the sheets they sit on,
     // before anything below reshapes the tree.
     if (forced && container) markKeptSurfaces(container);
+    // Dark bars with no text color of their own would carry the card's dark
+    // ink (#150), themed or not.
+    if (container) markDarkSurfacesWithoutInk(container);
     let found = false;
     if (container) {
       let q: Element | null = null;

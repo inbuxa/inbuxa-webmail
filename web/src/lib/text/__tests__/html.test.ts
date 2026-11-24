@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMAIL_BASE_CSS, LIGHT_SURFACE_LUMINANCE, htmlDeclaresColors, markKeptSurfaces, relativeLuminance, sanitizeEditorHtml, sanitizeEmailHtml } from "../html";
+import { DARK_SURFACE_LUMINANCE, EMAIL_BASE_CSS, LIGHT_SURFACE_LUMINANCE, htmlDeclaresColors, markDarkSurfacesWithoutInk, markKeptSurfaces, relativeLuminance, sanitizeEditorHtml, sanitizeEmailHtml } from "../html";
 
 describe("sanitizeEmailHtml", () => {
   it("removes scripts and event handlers", () => {
@@ -222,6 +222,72 @@ describe("markKeptSurfaces", () => {
     const td = d.querySelector("td")!;
     expect(td.getAttribute("bgcolor")).toBe("#1155CC");
     expect(td.style.color).toBe("rgb(255, 255, 255)");
+  });
+});
+
+describe("markDarkSurfacesWithoutInk", () => {
+  const frag = (html: string) => {
+    const d = document.createElement("div");
+    d.innerHTML = html;
+    return d;
+  };
+
+  /** The selector of the light-ink rule, lifted from the stylesheet so the test can't drift from it. */
+  const LIGHT_INK = (() => {
+    const m = EMAIL_BASE_CSS.match(/(\.ihm-email-root \[data-ihm-light-ink\])\s*\{\s*color:\s*#f3f4f6/);
+    if (!m) throw new Error("could not find the light-ink rule in EMAIL_BASE_CSS");
+    return m[1]!.replace(".ihm-email-root ", "");
+  })();
+
+  it("gives light ink to Gmail's dark paragraphs that set no color (#150)", () => {
+    // The shape in #150: a Gmail reply whose paragraphs carry a dark-mode
+    // background and no text color, through the real sanitizer.
+    const { html } = sanitizeEmailHtml(
+      '<div dir="ltr"><p dir="ltr" style="font-size:12.8px;background-color:rgb(29,29,32)">One</p>' +
+        '<p dir="ltr" style="font-size:12.8px;background-color:rgb(29,29,32)">Two</p>' +
+        '<div style="color:rgb(136,136,136);font-size:12.8px;background-color:rgb(29,29,32)" dir="auto">sig</div></div>',
+    );
+    const d = frag(html);
+    expect(markDarkSurfacesWithoutInk(d)).toBe(2);
+    const [one, two] = Array.from(d.querySelectorAll("p"));
+    expect(one!.matches(LIGHT_INK)).toBe(true);
+    expect(two!.matches(LIGHT_INK)).toBe(true);
+    // The signature says its own color, and keeps it.
+    expect(d.querySelector("div[dir=auto]")!.hasAttribute("data-ihm-light-ink")).toBe(false);
+  });
+
+  it("reads the bgcolor attribute and named colors", () => {
+    const d = frag('<table><tr><td bgcolor="#000000">a</td><td style="background:black">b</td></tr></table>');
+    expect(markDarkSurfacesWithoutInk(d)).toBe(2);
+  });
+
+  it("leaves light and mid-tone backgrounds to the card's dark ink", () => {
+    expect(relativeLuminance("#808080")!).toBeGreaterThan(DARK_SURFACE_LUMINANCE);
+    const d = frag('<p style="background:#ffffff">a</p><p style="background:#f1f5f9">b</p><p style="background:#808080">c</p>');
+    expect(markDarkSurfacesWithoutInk(d)).toBe(0);
+  });
+
+  it("leaves a dark surface alone when it names its own text color", () => {
+    const d = frag('<td style="background:#1155CC;color:#fff">Buy</td><font color="#ffffff" style="background:#000">x</font>');
+    expect(markDarkSurfacesWithoutInk(d)).toBe(0);
+  });
+
+  it("still marks the surface when only text inside it is colored, and that text keeps its color", () => {
+    const d = frag('<div style="background:#111"><span style="color:#ffd700">gold</span> plain</div>');
+    expect(markDarkSurfacesWithoutInk(d)).toBe(1);
+    expect(d.querySelector("span")!.style.color).toBe("rgb(255, 215, 0)");
+  });
+
+  it("gives links on a marked surface a light color too", () => {
+    expect(EMAIL_BASE_CSS).toMatch(/\.ihm-email-root \[data-ihm-light-ink\] a\s*\{\s*color:\s*#5eead4/);
+  });
+
+  it("leaves the sender's markup alone apart from the mark", () => {
+    const d = frag('<p style="background-color:rgb(29,29,32)">x</p>');
+    markDarkSurfacesWithoutInk(d);
+    const p = d.querySelector("p")!;
+    expect(p.style.backgroundColor).toBe("rgb(29, 29, 32)");
+    expect(p.style.color).toBe("");
   });
 });
 
