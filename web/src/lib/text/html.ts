@@ -319,6 +319,13 @@ export const EMAIL_BASE_CSS = `
 .ihm-email-root.forced { color: var(--fg, #1f2937) !important; background: var(--bg-elev, #fff) !important; }
 .ihm-email-root.forced *:not([data-ihm-keep]):not([data-ihm-in-keep]) { color: inherit !important; background-color: transparent !important; }
 .ihm-email-root.forced a:not([data-ihm-keep]):not([data-ihm-in-keep]) { color: var(--link, #0f766e) !important; }
+
+/* A dark surface the sender painted without saying what color the text on it
+   is (markDarkSurfacesWithoutInk). Left alone, it inherits the card's dark ink
+   and can't be read (#150). Specific enough to beat the card's own blockquote
+   and link colors; a color the sender set inline still wins. */
+.ihm-email-root [data-ihm-light-ink] { color: #f3f4f6; }
+.ihm-email-root [data-ihm-light-ink] a { color: #5eead4; }
 `;
 
 /**
@@ -465,6 +472,41 @@ export function markKeptSurfaces(root: ParentNode): number {
   }
 
   return kept;
+}
+
+/**
+ * Below this, light ink reads better on a background than the card's dark ink
+ * (#1f2937) does. The two contrast ratios cross near 0.21; rgb(29,29,32), the
+ * background in #150, is about 0.012.
+ */
+export const DARK_SURFACE_LUMINANCE = 0.2;
+
+/**
+ * Mark the dark surfaces that set no text color of their own, and count them.
+ *
+ * Text pasted from a dark-mode app often keeps the app's background but not
+ * its text color: Gmail sends `<p style="background-color:rgb(29,29,32)">`
+ * with nothing else (#150). On the light card the text inherits the card's
+ * dark ink and sits invisible on a near-black bar; it does the same on any
+ * light page. `data-ihm-light-ink` gives such a surface light ink through a
+ * rule in EMAIL_BASE_CSS; a color the sender set inline, on it or inside it,
+ * still wins, and the sender's markup is untouched.
+ *
+ * Runs on every HTML message, themed or not. A surface marked here that
+ * `markKeptSurfaces` also keeps gets the same light ink under "even mail
+ * that styles itself", instead of the app's ink, which is dark in the light
+ * theme.
+ */
+export function markDarkSurfacesWithoutInk(root: ParentNode): number {
+  let marked = 0;
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>("[style], [bgcolor]"))) {
+    const lum = declaredLuminance(el);
+    if (lum === null || lum >= DARK_SURFACE_LUMINANCE) continue;
+    if (el.style?.color || el.getAttribute("color")) continue;
+    el.setAttribute("data-ihm-light-ink", "");
+    marked++;
+  }
+  return marked;
 }
 
 /**
