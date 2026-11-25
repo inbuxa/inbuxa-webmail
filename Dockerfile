@@ -89,3 +89,16 @@ EXPOSE 8080
 # restart it forever.
 HEALTHCHECK --interval=30s --timeout=5s CMD BP="${BASE_PATH%/}"; case "$BP" in ""|/*) ;; *) BP="/$BP";; esac; wget -qO- "http://127.0.0.1:8080$BP/api/health" || exit 1
 CMD ["node", "server/dist/index.js"]
+
+# Last in the image, after everything that does work: a value that changes
+# every build (the version, the commit) then never costs a cached layer.
+# What the image says it is, for registries and anyone inspecting it.
+LABEL org.opencontainers.image.title="inbuxa Webmail" \
+      org.opencontainers.image.description="Webmail for the inbuxa mail server: mail, calendars, contacts and files for everyone with an account, on a phone as readily as a desktop. Built on ihasmail." \
+      org.opencontainers.image.url="https://inbuxa.org/" \
+      org.opencontainers.image.documentation="https://docs.inbuxa.org/" \
+      org.opencontainers.image.source="https://git.coffeylabs.org/inbuxa/inbuxa-webmail" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.vendor="Coffey Labs LLC" \
+      org.opencontainers.image.version="$IHASMAIL_VERSION" \
+      org.opencontainers.image.revision="$INBUXA_REVISION"
