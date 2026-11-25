@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newRule, reorderRules, rulesToSieve, sieveToRules, testToSieve, sieveString, upsertRule, type SieveRule } from "../sieve";
+import { needsAdministrator, newRule, reorderRules, rulesToSieve, sieveToRules, SORTING_ACTIONS, testToSieve, sieveString, upsertRule, type SieveRule } from "../sieve";
 
 describe("sieve codec", () => {
   it("escapes strings", () => {
@@ -53,5 +53,61 @@ describe("reordering rules", () => {
     expect(reorderRules(list, "a", "zz", true)).toBe(list);
     expect(reorderRules(list, "zz", "a", true)).toBe(list);
     expect(ids(list)).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+/**
+ * #155: on a shared mailbox a member who isn't an administrator may only save
+ * rules that sort. A rule an administrator saved there, one that forwards or
+ * rejects, is shown read-only -- and because saving rewrites the whole script
+ * from the rules, it has to come back out byte for byte when the others change.
+ */
+describe("rules only an administrator may change on a shared mailbox", () => {
+  const forward: SieveRule = {
+    id: "radmin",
+    name: "Escalate to on-call",
+    enabled: true,
+    join: "anyof",
+    tests: [{ type: "header", header: "subject", op: "contains", value: "outage" }],
+    actions: [{ type: "redirect", address: "oncall@example.com", copy: true }, { type: "stop" }],
+  };
+  const bounce: SieveRule = { ...newRule({ id: "rreject", name: "Refuse spam" }), actions: [{ type: "reject", reason: "No thanks" }] };
+  const sort = newRule({ id: "rsort", name: "Invoices", actions: [{ type: "fileinto", mailbox: "Invoices" }, { type: "markread" }] });
+
+  it("counts forwarding and rejecting, and nothing that only sorts", () => {
+    expect(needsAdministrator(forward)).toBe(true);
+    expect(needsAdministrator(bounce)).toBe(true);
+    expect(needsAdministrator(sort)).toBe(false);
+    for (const type of ["discard", "stop", "flag", "keep"] as const) {
+      expect(needsAdministrator(newRule({ actions: [{ type }] }))).toBe(false);
+    }
+  });
+
+  it("counts an action it doesn't know, so a newer client's rule is left alone", () => {
+    const future = { ...sort, actions: [{ type: "vacation", days: 7 }] } as unknown as SieveRule;
+    expect(needsAdministrator(future)).toBe(true);
+    expect(SORTING_ACTIONS.has("redirect")).toBe(false);
+  });
+
+  it("writes an administrator's rule back unchanged when the others are edited", () => {
+    const script = rulesToSieve([sort, forward, bounce]);
+    const blockOf = (text: string, id: string) => {
+      const lines = text.split("\n");
+      const at = lines.findIndex((l) => l.startsWith("# rule:") && l.includes(`"id":"${id}"`));
+      const end = lines.indexOf("", at);
+      return lines.slice(at, end).join("\n");
+    };
+
+    // What a member does: edit their own rule, add one, reorder around the others.
+    const parsed = sieveToRules(script)!;
+    const edited = parsed.map((r) => (r.id === "rsort" ? { ...r, name: "Invoices (paid)" } : r));
+    const next = rulesToSieve([...reorderRules(edited, "rsort", "rreject", true), newRule({ id: "rnew", name: "Flag the boss" })]);
+
+    expect(blockOf(next, "radmin")).toBe(blockOf(script, "radmin"));
+    expect(blockOf(next, "rreject")).toBe(blockOf(script, "rreject"));
+    expect(blockOf(next, "radmin")).toContain('redirect :copy "oncall@example.com";');
+    // The extensions those rules need stay required.
+    expect(next).toMatch(/^require \[.*"copy".*"reject".*\];$/m);
+    expect(sieveToRules(next)!.find((r) => r.id === "radmin")).toEqual(forward);
   });
 });

@@ -19,7 +19,7 @@ export function FilterFromMessageDialog({ email, mailboxId, onClose }: { email: 
 
   useEffect(() => {
     (async () => {
-      if (sieve.available && !sieve.scripts.length && !sieve.loading) await sieve.load();
+      if (sieve.available && !sieve.forbidden && !sieve.scripts.length && !sieve.loading) await sieve.load();
       setReady(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -33,6 +33,13 @@ export function FilterFromMessageDialog({ email, mailboxId, onClose }: { email: 
     );
   }
   if (!ready) return <Dialog open onClose={onClose} title={t("Create filter")} size="sm"><Spinner /></Dialog>;
+  if (sieve.forbidden) {
+    return (
+      <Dialog open onClose={onClose} title={t("Create filter")} size="sm" footer={<button className="btn" onClick={onClose}>{t("Close")}</button>}>
+        <p>{t("You need full access to this mailbox to change its filters.")}</p>
+      </Dialog>
+    );
+  }
 
   const { rules, loaded, damage } = sieve.rules();
   if (rules === null) {

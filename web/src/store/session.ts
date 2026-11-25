@@ -24,7 +24,8 @@ interface SessionState {
    * Another account whose mail the app shows instead of the reader's own:
    * a locked account handed to them (inbuxa AL-7), whose calendar, contacts
    * and files follow, or a shared or group mailbox (MA-A), which is mail
-   * only. The reader's settings, filters, signatures and push stay their own.
+   * only. The reader's settings, signatures and push stay their own; a shared
+   * mailbox's filters are its own, since they sort its mail (#155).
    */
   viewing: Id | null;
   /** Shared and group mailboxes the reader can open (MA-A); see lib/sharedMail. */

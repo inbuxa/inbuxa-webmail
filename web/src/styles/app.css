@@ -1790,6 +1790,8 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .rule-card.drop-below { box-shadow: inset 0 -3px 0 0 var(--accent); }
 .rule-card .drag-handle { display: flex; align-items: center; padding: 2px; margin-left: -4px; color: var(--fg-faint); cursor: grab; touch-action: none; }
 .rule-card .drag-handle:active { cursor: grabbing; }
+/* A rule only an administrator may change (#155): nothing to grab. */
+.rule-card .drag-handle.locked { cursor: default; }
 
 /* The bar that says whether there is unsaved work, kept where it can be read.
    Unpinned it sat after the rules, which on a full list means off the bottom of

@@ -287,6 +287,24 @@ export function sieveToRules(script: string): SieveRule[] | null {
   return out;
 }
 
+/**
+ * What a member of a shared mailbox may save in its filters without an
+ * administrator: actions that sort the mail and send nothing anywhere. The
+ * server refuses the rest (forwarding, rejecting, automatic replies) from
+ * anyone who isn't one, so the editor doesn't offer them.
+ *
+ * An allowlist, so an action this version doesn't know counts as one only an
+ * administrator may change.
+ */
+export const SORTING_ACTIONS: ReadonlySet<SieveAction["type"]> = new Set<SieveAction["type"]>([
+  "fileinto", "markread", "flag", "addflag", "setflag", "removeflag", "keep", "discard", "stop",
+]);
+
+/** Whether only an administrator may change this rule on a shared mailbox. */
+export function needsAdministrator(r: SieveRule): boolean {
+  return r.actions.some((a) => !SORTING_ACTIONS.has(a.type));
+}
+
 export function newRule(partial: Partial<SieveRule> = {}): SieveRule {
   return {
     id: `r${Math.random().toString(36).slice(2, 9)}`,

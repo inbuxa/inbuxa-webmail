@@ -75,6 +75,15 @@ export function hasAdministration(perms: Permissions): boolean {
 }
 
 /**
+ * Whether the server treats the account as an administrator when it acts in
+ * another account, as it does for a shared mailbox's filters. The mail server
+ * asks for `impersonate` there, not for any of the directory permissions.
+ */
+export function actsAsAdministrator(perms: Permissions): boolean {
+  return perms.has("impersonate");
+}
+
+/**
  * What an administrator holds, at the least: Stalwart's built-in Tenant
  * Administrator role, for the parts of it that manage people and domains.
  * Anyone who has all of this can already do anything to the accounts an

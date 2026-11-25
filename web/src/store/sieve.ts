@@ -1,13 +1,67 @@
 import { create } from "zustand";
-import { CAP, client, setErrorMessage } from "@/jmap/client";
-import type { GetResponse, Id, SetResponse, SieveScript } from "@/jmap/types";
+import { CAP, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import type { GetResponse, Id, JmapSession, SetError, SetResponse, SieveScript } from "@/jmap/types";
 import { rulesToSieve, scriptDamage, sieveToRules, type SieveRule } from "@/lib/sieve/sieve";
+import { actsAsAdministrator, permissionSet } from "@/lib/admin/adminAccess";
+import { delegationOf } from "@/lib/delegation";
+import type { SharedMailAccount } from "@/lib/sharedMail";
+import { t } from "@/lib/i18n";
 import { useSession } from "./session";
 
 export const IHASMAIL_SCRIPT = "ihasmail";
 
-interface SieveState {
+/**
+ * Whose filters the page edits, and on what terms.
+ *
+ * The reader's own, unless a shared mailbox is in view (MA-S): its mail is
+ * sorted by its own script, so that is the one to edit. Rules written into the
+ * reader's own script for a shared address never ran on its mail, and filed
+ * into the reader's Inbox when they named its folders. A locked account handed
+ * to the reader (AL-7) keeps the reader's own filters, as before.
+ *
+ * Only a member with full access may manage a shared mailbox's filters, and
+ * only an administrator may make them forward, reject or answer mail. The
+ * server enforces both; this only decides what the page offers.
+ */
+export interface FiltersTarget {
   accountId: Id | null;
+  /** The shared mailbox, or null for the reader's own filters. */
+  shared: { name: string } | null;
+  /** Known without asking: the reader's access to the shared mailbox isn't full. */
+  forbidden: boolean;
+  /** Only sorting actions may be saved: a shared mailbox, and the reader isn't an administrator. */
+  sortOnly: boolean;
+}
+
+export function filtersTarget(session: JmapSession | null, viewing: Id | null, sharedMail: readonly SharedMailAccount[], own: Id | null): FiltersTarget {
+  const shared = viewing ? sharedMail.find((a) => a.id === viewing) : undefined;
+  if (!shared) return { accountId: own, shared: null, forbidden: false, sortOnly: false };
+  // An installation with administration off sends no permissions, so nobody
+  // counts as an administrator here; the server still lets one save anything.
+  const perms = permissionSet(session?.ihasmail?.administration === false ? [] : session?.ihasmail?.permissions);
+  const admin = actsAsAdministrator(perms);
+  const delegation = delegationOf(session, shared.id);
+  return {
+    accountId: shared.id,
+    shared: { name: shared.name },
+    forbidden: !admin && delegation !== null && delegation.access !== "full",
+    sortOnly: !admin,
+  };
+}
+
+const isForbidden = (err: unknown): boolean => err instanceof JmapMethodError && err.type === "forbidden";
+
+/**
+ * Why a save was refused. The server's own words when it gave some: on a
+ * shared mailbox they say what only an administrator may save, which is the
+ * whole answer. A bare `forbidden` there means the access isn't full.
+ */
+export function refusal(err: SetError, shared: boolean): string {
+  if (shared && err.type === "forbidden" && !err.description) return t("You need full access to this mailbox to change its filters.");
+  return setErrorMessage(err);
+}
+
+interface SieveState extends FiltersTarget {
   available: boolean;
   scripts: SieveScript[];
   /** Content of each script by id. */
@@ -30,6 +84,9 @@ interface SieveState {
 
 export const useSieve = create<SieveState>((set, get) => ({
   accountId: null,
+  shared: null,
+  forbidden: false,
+  sortOnly: false,
   available: false,
   scripts: [],
   contents: {},
@@ -37,19 +94,26 @@ export const useSieve = create<SieveState>((set, get) => ({
   error: null,
 
   async init() {
-    const accountId = useSession.getState().accountFor(CAP.sieve);
-    const available = Boolean(accountId && client.hasCapability(CAP.sieve));
-    set({ accountId, available });
-    if (available) await get().load();
+    const s = useSession.getState();
+    const target = filtersTarget(s.session, s.viewing, s.sharedMail, s.accountFor(CAP.sieve));
+    const available = Boolean(target.accountId && client.hasCapability(CAP.sieve));
+    // Another account's scripts are not this one's: never show them, or save
+    // over them, while the new account's are on their way.
+    const moved = target.accountId !== get().accountId;
+    set({ ...target, available, ...(moved ? { scripts: [], contents: {}, error: null, loading: false } : {}) });
+    if (available && !target.forbidden) await get().load();
   },
 
   async load() {
     const accountId = get().accountId;
-    if (!accountId) return;
+    // Already answered: init() asks again when the mailbox or the session changes.
+    if (!accountId || get().forbidden) return;
     set({ loading: true });
     try {
       const res = await client.call<GetResponse<SieveScript>>("SieveScript/get", { accountId, ids: null });
-      set({ scripts: res.list, loading: false, error: null });
+      // The reader switched mailboxes while this was asking.
+      if (get().accountId !== accountId) return;
+      set({ scripts: res.list, loading: false, error: null, forbidden: false });
       // Preload contents.
       //
       // A fetch that fails must not be recorded as "". An empty script parses
@@ -72,9 +136,14 @@ export const useSieve = create<SieveState>((set, get) => ({
       );
       // Merged, not replaced: saveScript caches the content it just wrote, and
       // a reload whose fetch failed must not throw that away.
+      if (get().accountId !== accountId) return;
       set((st) => ({ contents: { ...st.contents, ...fetched } }));
     } catch (err) {
-      set({ loading: false, error: (err as Error).message });
+      if (get().accountId !== accountId) return;
+      // A shared mailbox's filters, and the reader's access isn't full. That
+      // is an answer, not a failure, and the page says it as one.
+      if (get().shared && isForbidden(err)) set({ loading: false, forbidden: true, scripts: [], contents: {}, error: null });
+      else set({ loading: false, error: (err as Error).message });
     }
   },
 
@@ -129,14 +198,24 @@ export const useSieve = create<SieveState>((set, get) => ({
 
   async saveScript(id, name, content, activate) {
     const accountId = get().accountId!;
-    const up = await client.upload(accountId, new Blob([content], { type: "application/sieve" }), { type: "application/sieve" });
     const args: Record<string, unknown> = { accountId };
-    if (id) args.update = { [id]: { name, blobId: up.blobId } };
-    else args.create = { s: { name, blobId: up.blobId } };
-    if (activate) args.onSuccessActivateScript = id ?? "#s";
-    const res = await client.call<SetResponse<SieveScript>>("SieveScript/set", args);
+    let res: SetResponse<SieveScript>;
+    try {
+      const up = await client.upload(accountId, new Blob([content], { type: "application/sieve" }), { type: "application/sieve" });
+      if (id) args.update = { [id]: { name, blobId: up.blobId } };
+      else args.create = { s: { name, blobId: up.blobId } };
+      if (activate) args.onSuccessActivateScript = id ?? "#s";
+      res = await client.call<SetResponse<SieveScript>>("SieveScript/set", args);
+    } catch (err) {
+      // Access taken away since the page opened: show the page that says so.
+      if (get().shared && isForbidden(err)) {
+        set({ forbidden: true });
+        throw new Error(t("You need full access to this mailbox to change its filters."));
+      }
+      throw err;
+    }
     const err = id ? res.notUpdated?.[id] : res.notCreated?.s;
-    if (err) throw new Error(setErrorMessage(err));
+    if (err) throw new Error(refusal(err, get().shared !== null));
     const newId = id ?? res.created!.s!.id;
     set((s) => ({ contents: { ...s.contents, [newId]: content } }));
     await get().load();
