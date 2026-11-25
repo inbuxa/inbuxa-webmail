@@ -36,6 +36,16 @@ ARG BASE_PATH=""
 # The commit being built, for /.well-known/source; passed like the version,
 # for the same reason. Left empty, there is no source document.
 ARG INBUXA_REVISION=""
+# What the image says it is, for registries and anyone inspecting it.
+LABEL org.opencontainers.image.title="inbuxa Webmail" \
+      org.opencontainers.image.description="Webmail for the inbuxa mail server: mail, calendars, contacts and files for everyone with an account, on a phone as readily as a desktop. Built on ihasmail." \
+      org.opencontainers.image.url="https://inbuxa.org/" \
+      org.opencontainers.image.documentation="https://docs.inbuxa.org/" \
+      org.opencontainers.image.source="https://git.coffeylabs.org/inbuxa/inbuxa-webmail" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.vendor="Coffey Labs LLC" \
+      org.opencontainers.image.version="$IHASMAIL_VERSION" \
+      org.opencontainers.image.revision="$INBUXA_REVISION"
 ENV NODE_ENV=production \
     HOST=:: \
     PORT=8080 \
