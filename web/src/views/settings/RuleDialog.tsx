@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useMail } from "@/store/mail";
+import { useSieve } from "@/store/sieve";
 import { HEADER_CHOICES, HEADER_OPS, type SieveAction, type SieveRule, type SieveTest } from "@/lib/sieve/sieve";
 import { Dialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -23,6 +24,9 @@ export interface RuleDialogProps {
 export function RuleDialog({ rule, onClose, onSave, applyMailbox, applyByDefault, title, saveLabel }: RuleDialogProps) {
   const [r, setR] = useState<SieveRule>(rule);
   const [applyNow, setApplyNow] = useState(Boolean(applyMailbox && applyByDefault));
+  // A shared mailbox, and the reader isn't an administrator: the server takes
+  // sorting from them and nothing that sends mail anywhere (#155).
+  const sortOnly = useSieve((s) => s.sortOnly);
   const mailboxes = useMail((s) => s.mailboxes);
   const mailboxPath = useMail((s) => s.mailboxPath);
   const folders = useMemo(() => Object.values(mailboxes).map((m) => ({ id: m.id, path: mailboxPath(m.id) })).sort((a, b) => a.path.localeCompare(b.path)), [mailboxes, mailboxPath]);
@@ -101,10 +105,10 @@ export function RuleDialog({ rule, onClose, onSave, applyMailbox, applyByDefault
             <option value="markread">{translate("Mark as read")}</option>
             <option value="flag">{translate("Star")}</option>
             <option value="addflag">{translate("Add label / keyword")}</option>
-            <option value="redirect">{translate("Forward to")}</option>
+            {(!sortOnly || a.type === "redirect") && <option value="redirect">{translate("Forward to")}</option>}
             <option value="keep">{translate("Keep in Inbox")}</option>
             <option value="discard">{translate("Delete")}</option>
-            <option value="reject">{translate("Reject with message")}</option>
+            {(!sortOnly || a.type === "reject") && <option value="reject">{translate("Reject with message")}</option>}
             <option value="stop">{translate("Stop processing more rules")}</option>
           </select>
           {a.type === "fileinto" ? (

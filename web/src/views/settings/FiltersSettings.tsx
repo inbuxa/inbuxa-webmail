@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Code, GripVertical, Plus, Trash2, Wand2, Play, AlertTriangle, Power } from "lucide-react";
+import { ArrowDown, ArrowUp, Code, GripVertical, Lock, Plus, Trash2, Wand2, Play, AlertTriangle, Power } from "lucide-react";
 import { useSieve } from "@/store/sieve";
 import { useMail } from "@/store/mail";
-import { describeRule, newRule, reorderRules, rulesToSieve, upsertRule, type SieveRule } from "@/lib/sieve/sieve";
+import { useSession } from "@/store/session";
+import { describeRule, needsAdministrator, newRule, reorderRules, rulesToSieve, upsertRule, type SieveRule } from "@/lib/sieve/sieve";
 import { RuleDialog } from "./RuleDialog";
 import { saveAndApply } from "../mail/FilterFromMessage";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
@@ -26,24 +27,42 @@ export function FiltersSettings() {
       if (ok) setTab(next);
     });
   };
+  /** Whether there is a shared mailbox whose mail these rules will never see. */
+  const hasSharedMail = useSession((s) => s.sharedMail.length > 0);
   useEffect(() => {
-    if (sieve.available && !sieve.scripts.length && !sieve.loading) void sieve.load();
+    if (sieve.available && !sieve.forbidden && !sieve.scripts.length && !sieve.loading) void sieve.load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sieve.available]);
+  }, [sieve.available, sieve.accountId]);
+
+  // On a shared mailbox, say whose filters these are: rules written here sort
+  // its mail, not the reader's, and rules for it written anywhere else never run.
+  const heading = <h1>{sieve.shared ? t("Filters for {name}", { name: sieve.shared.name }) : t("Filters & rules")}</h1>;
 
   if (!sieve.available) {
     return (
       <div>
-        <h1>{t("Filters & rules")}</h1>
+        {heading}
         <p className="lead">{t("Sieve filtering is not available for this account.")}</p>
+      </div>
+    );
+  }
+
+  // Read or Organize access to a shared mailbox. Nothing here would work, so
+  // nothing here is offered.
+  if (sieve.forbidden) {
+    return (
+      <div>
+        {heading}
+        <p className="lead">{t("You need full access to this mailbox to change its filters.")}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h1>{t("Filters & rules")}</h1>
+      {heading}
       <p className="lead">{t("Sort incoming mail automatically. Rules run on the server (Sieve), so they work for every client you use.")}</p>
+      {!sieve.shared && hasSharedMail && <p className="hint mb-16">{t("Rules here only apply to mail delivered to you. To sort a shared mailbox's mail, switch to it first.")}</p>}
       <div className="view-switch" style={{ marginBottom: 16 }}>
         <button className={tab === "rules" ? "active" : ""} onClick={() => switchTab("rules")}><Wand2 size={15} />  {t("Rules")}</button>
         <button className={tab === "scripts" ? "active" : ""} onClick={() => switchTab("scripts")}><Code size={15} />  {t("Scripts (advanced)")}</button>
@@ -130,48 +149,59 @@ function RulesEditor() {
   return (
     <div>
       {activeIsOther && <div className="warn-box mb-16">{t("Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.", { name: script?.name ?? "" })}</div>}
-      {list.length === 0 && <div className="empty" style={{ padding: 32 }}><Wand2 size={32} /><h3>{t("No filters yet")}</h3><p>{t("Create a rule to move newsletters to a folder, flag important senders, or forward mail.")}</p></div>}
-      {list.map((r, i) => (
-        <div
-          key={r.id}
-          className={`rule-card ${r.enabled ? "" : "disabled"} ${dragId === r.id ? "dragging" : ""} ${over?.id === r.id ? (over.below ? "drop-below" : "drop-above") : ""}`}
-          draggable={armed === r.id}
-          onDragStart={(e) => { e.dataTransfer.setData(RULE_MIME, r.id); e.dataTransfer.effectAllowed = "move"; dragging.current = r.id; setDragId(r.id); }}
-          onDragEnd={endDrag}
-          onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes(RULE_MIME) || dragging.current === r.id) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            const below = isBelow(e.currentTarget, e.clientY);
-            if (over?.id !== r.id || over.below !== below) setOver({ id: r.id, below });
-          }}
-          onDragLeave={() => setOver((o) => (o?.id === r.id ? null : o))}
-          onDrop={(e) => {
-            e.preventDefault();
-            const from = e.dataTransfer.getData(RULE_MIME);
-            if (from) setLocal(reorderRules(list, from, r.id, isBelow(e.currentTarget, e.clientY)));
-            endDrag();
-          }}
-        >
-          <div className="row">
-            <span
-              className="drag-handle"
-              title={t("Drag to reorder")}
-              aria-hidden="true"
-              onPointerDown={() => setArmed(r.id)}
-              onPointerUp={() => setArmed(null)}
-            ><GripVertical size={16} /></span>
-            <Switch checked={r.enabled} onChange={(v) => setLocal(list.map((x) => (x.id === r.id ? { ...x, enabled: v } : x)))} />
-            <div className="grow" style={{ cursor: "pointer", minWidth: 0 }} onClick={() => setEditing(r)}>
-              <div style={{ fontWeight: 600 }}>{r.name}</div>
-              <div className="hint truncate">{describeRule(r)}</div>
+      {list.length === 0 && <div className="empty" style={{ padding: 32 }}><Wand2 size={32} /><h3>{t("No filters yet")}</h3><p>{sieve.sortOnly ? t("Create a rule to move newsletters to a folder or flag important senders.") : t("Create a rule to move newsletters to a folder, flag important senders, or forward mail.")}</p></div>}
+      {list.map((r, i) => {
+        // Forwards, rejects or does something else only an administrator may
+        // save here. Shown, so the list is the whole of what runs, but kept
+        // exactly as it is: saving the other rules writes it back unchanged.
+        const locked = sieve.sortOnly && needsAdministrator(r);
+        return (
+          <div
+            key={r.id}
+            className={`rule-card ${r.enabled ? "" : "disabled"} ${dragId === r.id ? "dragging" : ""} ${over?.id === r.id ? (over.below ? "drop-below" : "drop-above") : ""}`}
+            draggable={!locked && armed === r.id}
+            onDragStart={(e) => { e.dataTransfer.setData(RULE_MIME, r.id); e.dataTransfer.effectAllowed = "move"; dragging.current = r.id; setDragId(r.id); }}
+            onDragEnd={endDrag}
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes(RULE_MIME) || dragging.current === r.id) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              const below = isBelow(e.currentTarget, e.clientY);
+              if (over?.id !== r.id || over.below !== below) setOver({ id: r.id, below });
+            }}
+            onDragLeave={() => setOver((o) => (o?.id === r.id ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault();
+              const from = e.dataTransfer.getData(RULE_MIME);
+              if (from) setLocal(reorderRules(list, from, r.id, isBelow(e.currentTarget, e.clientY)));
+              endDrag();
+            }}
+          >
+            <div className="row">
+              {locked ? (
+                <span className="drag-handle locked" aria-hidden="true"><Lock size={16} /></span>
+              ) : (
+                <span
+                  className="drag-handle"
+                  title={t("Drag to reorder")}
+                  aria-hidden="true"
+                  onPointerDown={() => setArmed(r.id)}
+                  onPointerUp={() => setArmed(null)}
+                ><GripVertical size={16} /></span>
+              )}
+              <Switch checked={r.enabled} locked={locked} onChange={(v) => setLocal(list.map((x) => (x.id === r.id ? { ...x, enabled: v } : x)))} />
+              <div className="grow" style={{ cursor: locked ? "default" : "pointer", minWidth: 0 }} onClick={locked ? undefined : () => setEditing(r)}>
+                <div style={{ fontWeight: 600 }}>{r.name}</div>
+                <div className="hint truncate">{describeRule(r)}</div>
+                {locked && <div className="hint">{t("Saved by an administrator; only an administrator can change it")}</div>}
+              </div>
+              <button className="icon-btn sm" disabled={locked || i === 0} aria-label={t("Move up")} onClick={() => { const n = [...list]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; setLocal(n); }}><ArrowUp size={16} /></button>
+              <button className="icon-btn sm" disabled={locked || i === list.length - 1} aria-label={t("Move down")} onClick={() => { const n = [...list]; [n[i + 1], n[i]] = [n[i]!, n[i + 1]!]; setLocal(n); }}><ArrowDown size={16} /></button>
+              <button className="icon-btn sm danger" disabled={locked} aria-label={t("Delete rule")} onClick={() => setLocal(list.filter((x) => x.id !== r.id))}><Trash2 size={16} /></button>
             </div>
-            <button className="icon-btn sm" disabled={i === 0} aria-label={t("Move up")} onClick={() => { const n = [...list]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; setLocal(n); }}><ArrowUp size={16} /></button>
-            <button className="icon-btn sm" disabled={i === list.length - 1} aria-label={t("Move down")} onClick={() => { const n = [...list]; [n[i + 1], n[i]] = [n[i]!, n[i + 1]!]; setLocal(n); }}><ArrowDown size={16} /></button>
-            <button className="icon-btn sm danger" aria-label={t("Delete rule")} onClick={() => setLocal(list.filter((x) => x.id !== r.id))}><Trash2 size={16} /></button>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {/*
         * Pinned, because with more than a screenful of rules this bar was the
         * only thing saying there was unsaved work and it sat below the fold.

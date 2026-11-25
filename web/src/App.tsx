@@ -296,6 +296,9 @@ function AuthedApp() {
     void useCalendar.getState().init();
     void useContacts.getState().init();
     void useFiles.getState().init();
+    // And a shared mailbox's filters, which sort its mail rather than the
+    // reader's (#155); a locked account keeps the reader's own.
+    void useSieve.getState().init();
     if (!viewing) return;
     const poll = window.setInterval(() => {
       if (document.visibilityState === "visible") {
